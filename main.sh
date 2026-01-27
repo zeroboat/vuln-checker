@@ -84,6 +84,16 @@ log() {
 # 함수: 초기화
 ################################################################################
 init() {
+    # 결과 파일 초기화
+    {
+        echo "===================================================="
+        echo "Vulnerability Checker 결과"
+        echo "===================================================="
+        echo "실행일시: $(date '+%Y-%m-%d %H:%M:%S')"
+        echo "OS: ${OS_TYPE}"
+        echo "===================================================="
+    } > "$RESULT_FILE"
+    
     log "INFO" "=================================="
     log "INFO" "Vulnerability Checker 시작"
     log "INFO" "=================================="
@@ -116,6 +126,14 @@ finalize() {
 # 메인 로직
 ################################################################################
 main() {
+    # 필요한 디렉토리 생성
+    mkdir -p "${LOGS_DIR}" "${RESULTS_DIR}"
+    
+    # 공통 함수 먼저 로드
+    if [ -f "${SCRIPTS_DIR}/common.sh" ]; then
+        source "${SCRIPTS_DIR}/common.sh"
+    fi
+    
     # OS 감지
     OS_TYPE=$(detect_os)
     
@@ -158,21 +176,13 @@ main() {
             ;;
     esac
     
-    # 공통 함수 실행
-    if [ -f "${SCRIPTS_DIR}/common.sh" ]; then
-        source "${SCRIPTS_DIR}/common.sh"
-    fi
-    
     # 결과 저장
     {
+        echo ""
         echo "===================================================="
-        echo "Vulnerability Checker 결과"
+        echo "최종 상태: $([ $result -eq 0 ] && echo '성공' || echo '실패')"
         echo "===================================================="
-        echo "실행일시: $(date '+%Y-%m-%d %H:%M:%S')"
-        echo "OS: ${OS_TYPE}"
-        echo "상태: $([ $result -eq 0 ] && echo '성공' || echo '실패')"
-        echo "===================================================="
-    } > "$RESULT_FILE"
+    } >> "$RESULT_FILE"
     
     # 종료 처리
     if [ $result -eq 0 ]; then

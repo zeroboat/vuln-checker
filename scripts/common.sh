@@ -10,7 +10,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/security_codes.sh"
 # 로그 파일 추가
 append_log() {
     local message="$1"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ${message}" >> "$RESULT_FILE"
+    echo "${message}" >> "$RESULT_FILE"
 }
 
 # 명령어 실행 여부 확인

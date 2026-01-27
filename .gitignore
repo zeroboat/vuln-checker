@@ -45,3 +45,6 @@ test-results/
 node_modules/
 
 # End of https://www.toptal.com/developers/gitignore/api/bash
+
+logs/
+results/

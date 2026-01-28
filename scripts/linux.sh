@@ -4,6 +4,9 @@
 # Linux-specific Checks
 ################################################################################
 
+# common.sh 로드 (이미 main.sh에서 로드됨)
+# source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
 run_linux_checks() {
     local distro="$1"
     

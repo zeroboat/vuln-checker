@@ -1,10 +1,8 @@
 #!/bin/bash
-
 ################################################################################
-# U-19: /etc/inetd.conf 파일 소유자 및 권한 설정
+# U-19: /etc/hosts 파일 소유자 및 권한 설정
 ################################################################################
-
 check_U_19() {
-    print_security_check "U-19" "/etc/inetd.conf 파일 소유자 및 권한 설정" 1
-    record_check_result "U-19" "REVIEW" "점검 필요"
+    print_security_check "U-19" "/etc/hosts 파일 소유자 및 권한 설정" 1
+    check_file_permissions "/etc/hosts" "644" "U-19" "root"
 }

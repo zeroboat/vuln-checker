@@ -185,30 +185,48 @@ get_password_policy() {
 # 파일 권한 확인
 check_file_permissions() {
     local file="$1"
-    local recommended="$2"
-    local code="$3"  # 보안 항목 코드
-    
+    local max_perm="$2"
+    local code="$3"
+    local expected_owner="${4:-root}"
+
     if [ ! -e "$file" ]; then
-        append_log "파일 없음: $file"
         if [ -n "$code" ]; then
-            record_check_result "$code" "REVIEW" "파일이 존재하지 않음"
+            record_check_result "$code" "REVIEW" "파일이 존재하지 않음: $file"
         fi
         return 1
     fi
-    
-    local current=$(stat -c %a "$file" 2>/dev/null || stat -f %A "$file" 2>/dev/null)
+
+    local current_perm current_owner
+    current_perm=$(stat -c %a "$file" 2>/dev/null || stat -f %Lp "$file" 2>/dev/null)
+    current_owner=$(stat -c %U "$file" 2>/dev/null || stat -f %Su "$file" 2>/dev/null)
+    current_perm=$(echo "$current_perm" | tr -d '[:space:]' | sed 's/^0*//')
+    [ -z "$current_perm" ] && current_perm="0"
+
     local status="PASS"
-    local result="OK"
-    
-    if [ "$current" != "$recommended" ]; then
-        status="FAIL"
-        result="경고: 권한이 $recommended이어야 하는데 현재 $current"
+    local issues=""
+
+    if [ -n "$current_perm" ] && [ -n "$max_perm" ]; then
+        local cur_dec max_dec
+        cur_dec=$(printf "%d" "0${current_perm}" 2>/dev/null) || cur_dec=9999
+        max_dec=$(printf "%d" "0${max_perm}" 2>/dev/null) || max_dec=0
+        if [ "$cur_dec" -gt "$max_dec" ] 2>/dev/null; then
+            status="FAIL"
+            issues="${issues}권한 초과(현재:${current_perm}, 최대:${max_perm}) "
+        fi
     fi
-    
-    append_log "$file: $current ($result)"
-    
+
+    if [ -n "$expected_owner" ] && [ "$current_owner" != "$expected_owner" ]; then
+        status="FAIL"
+        issues="${issues}소유자 불일치(현재:${current_owner}, 기대:${expected_owner}) "
+    fi
+
+    local detail="$file: 권한=${current_perm}(최대 ${max_perm}), 소유자=${current_owner}"
     if [ -n "$code" ]; then
-        record_check_result "$code" "$status" "$file 권한: $current (권장: $recommended)"
+        if [ "$status" = "PASS" ]; then
+            record_check_result "$code" "PASS" "$detail"
+        else
+            record_check_result "$code" "FAIL" "${issues}| $detail"
+        fi
     fi
 }
 
@@ -350,18 +368,18 @@ check_unnecessary_services() {
     append_log "========================================"
     
     local dangerous_services=(
-        "finger:U-19:finger 서비스"
-        "ftp:U-20:Anonymous FTP"
-        "rsh:U-21:r 서비스"
-        "rlogin:U-21:r 서비스"
-        "rcp:U-21:r 서비스"
-        "nis:U-28:NIS 서비스"
-        "nfs:U-24:NFS 서비스"
-        "tftp:U-29:tftp 서비스"
-        "talk:U-29:talk 서비스"
-        "telnet:U-29:telnet 서비스"
-        "cups:U-70:프린트 서버"
-        "avahi-daemon:U-26:automount/avahi"
+        "finger:U-34:finger 서비스"
+        "vsftpd:U-35:Anonymous FTP"
+        "rsh:U-36:r 계열 서비스"
+        "rlogin:U-36:r 계열 서비스"
+        "rexec:U-36:r 계열 서비스"
+        "nis:U-43:NIS 서비스"
+        "nfs-server:U-39:NFS 서비스"
+        "tftp:U-44:tftp 서비스"
+        "talk:U-44:talk 서비스"
+        "telnet:U-52:telnet 서비스"
+        "rpcbind:U-42:RPC 서비스"
+        "autofs:U-41:automount 서비스"
     )
     
     if command_exists systemctl; then
@@ -437,10 +455,10 @@ check_unnecessary_services() {
     print_security_check "U-15" "/dev/null 파일의 파일 설정" 1
     print_security_check "U-16" "심볼릭 링크 및 Device 파일 설정" 1
     print_security_check "U-56" "UMASK 설정" 1
-    print_security_check "U-59" "중거 파일 및 디렉토리 접근 설정" 1
-    print_security_check "U-68" "로그 스트림 제정" 1
+    print_security_check "U-59" "중요 파일 및 디렉토리 접근 설정" 1
+    print_security_check "U-68" "로그 스트림 제한" 1
     print_security_check "U-69" "NFS 설정파일 제어"
-    print_security_check "U-72" "정책 파일 시스템 발정 설정"
+    print_security_check "U-72" "정책에 따른 파일 시스템 접근 설정"
 }
 
 ################################################################################
@@ -475,19 +493,19 @@ check_ssh_security() {
     
     if [ -f /etc/ssh/sshd_config ]; then
         # PermitRootLogin 확인
-        local permit_root=$(grep -w PermitRootLogin /etc/ssh/sshd_config | grep -v "^#" | awk '{print $2}')
+        local permit_root=$(grep -w PermitRootLogin /etc/ssh/sshd_config | grep -v "^#" | awk '{print $2}' | tail -1)
         if [ "$permit_root" = "yes" ]; then
             append_log "⚠️  [U-01] 경고: PermitRootLogin이 yes로 설정되어 있습니다 (권장: no)"
         fi
-        
+
         # PasswordAuthentication 확인
-        local pass_auth=$(grep -w PasswordAuthentication /etc/ssh/sshd_config | grep -v "^#" | awk '{print $2}')
+        local pass_auth=$(grep -w PasswordAuthentication /etc/ssh/sshd_config | grep -v "^#" | awk '{print $2}' | tail -1)
         if [ "$pass_auth" = "yes" ]; then
             append_log "⚠️  [U-02] 경고: PasswordAuthentication이 yes로 설정되어 있습니다 (권장: no, PubkeyAuthentication 사용)"
         fi
-        
+
         # Protocol 확인
-        local protocol=$(grep -w Protocol /etc/ssh/sshd_config | grep -v "^#" | awk '{print $2}')
+        local protocol=$(grep -w Protocol /etc/ssh/sshd_config | grep -v "^#" | awk '{print $2}' | tail -1)
         if [ "$protocol" = "1" ] || [[ "$protocol" == *"1"* ]]; then
             append_log "⚠️  [U-01] 심각: SSH Protocol 1이 활성화되어 있습니다 (반드시 비활성화해야 함)"
         fi

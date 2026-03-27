@@ -1,29 +1,26 @@
 #!/bin/bash
-
 ################################################################################
 # U-11: 사용자 Shell 점검
 ################################################################################
-
 check_U_11() {
     print_security_check "U-11" "사용자 Shell 점검" 1
-    
-    local system_users=("root" "bin" "daemon" "adm" "lp" "sync" "shutdown" "halt" "mail" "uucp" "operator" "games" "ftp" "nobody" "dbus" "polkitd" "abrt" "libstoragemgmt" "saslauth" "geoclue" "gnome-initial-setup")
-    local system_with_nologin=0
-    
-    for user in "${system_users[@]}"; do
-        local uid=$(get_uid "$user")
-        if [ -n "$uid" ]; then
-            local shell=$(get_shell "$user")
-            local nologin=$(is_nologin_shell "$shell")
-            if [ "$nologin" = "true" ]; then
-                ((system_with_nologin++))
+
+    local fail_list=""
+    while IFS=: read -r user _ uid _ _ _ shell; do
+        # UID < 1000 인 시스템 계정 (root 제외)
+        if [ "$uid" -lt 1000 ] && [ "$user" != "root" ] 2>/dev/null; then
+            local nologin
+            nologin=$(is_nologin_shell "$shell")
+            if [ "$nologin" = "false" ]; then
+                fail_list="${fail_list} ${user}(${shell})"
             fi
         fi
-    done
-    
-    if [ "$system_with_nologin" -gt 15 ]; then
-        record_check_result "U-11" "PASS" "시스템 계정이 nologin 쉘로 설정됨"
+    done < /etc/passwd
+
+    if [ -n "$fail_list" ]; then
+        append_log "  로그인 가능한 시스템 계정:${fail_list}"
+        record_check_result "U-11" "FAIL" "로그인 가능한 쉘을 가진 시스템 계정 존재:${fail_list}"
     else
-        record_check_result "U-11" "REVIEW" "일부 시스템 계정이 로그인 가능한 쉘을 사용 중"
+        record_check_result "U-11" "PASS" "모든 시스템 계정이 nologin 쉘 사용"
     fi
 }

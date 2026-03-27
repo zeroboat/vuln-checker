@@ -1,10 +1,8 @@
 #!/bin/bash
-
 ################################################################################
-# U-22: SUID, SGID, Sticky bit 설정 파일 점검
+# U-22: /etc/services 파일 소유자 및 권한 설정
 ################################################################################
-
 check_U_22() {
-    print_security_check "U-22" "SUID, SGID, Sticky bit 설정 파일 점검" 1
-    record_check_result "U-22" "REVIEW" "점검 필요"
+    print_security_check "U-22" "/etc/services 파일 소유자 및 권한 설정" 1
+    check_file_permissions "/etc/services" "644" "U-22" "root"
 }

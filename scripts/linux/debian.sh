@@ -7,132 +7,29 @@
 check_debian_ubuntu() {
     append_log ""
     append_log "=== Debian/Ubuntu 보안 검사 시작 ==="
-    
-    # APT 패키지 매니저 확인
+
     if command_exists apt; then
         append_log "패키지 매니저: APT"
-        append_log "업데이트 가능한 패키지: $(apt list --upgradable 2>/dev/null | wc -l)"
+        local upgradable
+        upgradable=$(apt list --upgradable 2>/dev/null | grep -v "Listing" | wc -l)
+        append_log "업데이트 가능한 패키지: ${upgradable}개"
     fi
-    
-    # Security 업데이트 확인
+
     if [ -f /etc/apt/apt.conf.d/50unattended-upgrades ]; then
         append_log "자동 보안 업데이트: 활성화"
     else
         append_log "자동 보안 업데이트: 비활성화"
     fi
-    
-    # UFW 방화벽 확인
+
     if command_exists ufw; then
-        append_log "UFW 방화벽: $(ufw status | head -1)"
+        append_log "UFW 방화벽: $(ufw status 2>/dev/null | head -1)"
     fi
-    
-    # 계정관리 검사
-    check_account_management_debian
-    
-    # 파일 권한 검사
-    check_critical_files
-    
-    # 시스템 로그 확인
-    check_system_logs
-    check_last_login
-    
-    # 열린 포트 확인
-    check_open_ports
-    check_dangerous_ports
-    
-    # 서비스 검사 (모든 U-19~U-72 항목)
-    check_running_services
-    check_unnecessary_services
-    
-    # SSH 설정 확인
-    check_ssh_config
-    check_ssh_security
-    
-    # 방화벽 확인
-    check_firewall_status
-    
+
+    if command_exists apparmor_status; then
+        append_log "AppArmor: $(apparmor_status 2>/dev/null | head -1)"
+    fi
+
+    run_all_checks
+
     log "INFO" "Debian/Ubuntu 검사 완료"
 }
-
-################################################################################
-# 계정관리 검사 (Debian/Ubuntu)
-################################################################################
-check_account_management_debian() {
-    append_log ""
-    append_log "=== [1] 계정 관리 점검 ==="
-    
-    # 1. 시스템 계정 확인
-    append_log ""
-    print_security_check "U-45" "불필요한 계정 제거"
-    local system_accounts=$(get_system_accounts)
-    append_log "$system_accounts"
-    
-    # 2. 일반 사용자 계정 확인
-    append_log ""
-    print_security_check "U-52" "동일한 UID 계정 확인"
-    local user_accounts=$(get_user_accounts)
-    append_log "$user_accounts"
-    
-    # 3. 기본 시스템 계정 상태 확인
-    append_log ""
-    print_security_check "U-44" "root 이외의 UID가 0인 계정 검사"
-    print_security_check "U-53" "사용자 shell 설정"
-    local system_users=("root" "bin" "sys" "sync" "games" "man" "lp" "mail" "news" "uucp" "proxy" "list" "irc" "gnats")
-    
-    for user in "${system_users[@]}"; do
-        local uid=$(get_uid "$user")
-        local shell=$(get_shell "$user")
-        local lock_status=$(is_account_locked "$user")
-        
-        if [ -n "$uid" ]; then
-            local nologin=$(is_nologin_shell "$shell")
-            append_log "  계정: $user | UID: $uid | 쉘: $shell | 로그인불가: $nologin | 잠금: $lock_status"
-        fi
-    done
-    
-    # 4. 패스워드 정책 확인
-    append_log ""
-    print_security_check "U-02" "패스워드 복잡성 설정"
-    print_security_check "U-03" "계정 잠금 정책 설정"
-    print_security_check "U-46" "패스워드 최소 길이 설정"
-    print_security_check "U-47" "패스워드 최소 사용기간 설정"
-    if [ -f /etc/login.defs ]; then
-        append_log "  PASS_MAX_DAYS: $(grep ^PASS_MAX_DAYS /etc/login.defs | awk '{print $2}')"
-        append_log "  PASS_MIN_DAYS: $(grep ^PASS_MIN_DAYS /etc/login.defs | awk '{print $2}')"
-        append_log "  PASS_WARN_AGE: $(grep ^PASS_WARN_AGE /etc/login.defs | awk '{print $2}')"
-        append_log "  PASS_MIN_LEN: $(grep ^PASS_MIN_LEN /etc/login.defs | awk '{print $2}')"
-    fi
-    
-    # 5. sudo 권한 확인
-    append_log ""
-    print_security_check "U-50" "관리자 그룹에 최소한의 계정 포함"
-    if [ -f /etc/sudoers ]; then
-        local sudo_users=$(grep -E "^[^#]*%?[a-zA-Z0-9_-]+.*ALL=" /etc/sudoers 2>/dev/null | grep -v "^#")
-        if [ -n "$sudo_users" ]; then
-            append_log "  $sudo_users"
-        else
-            append_log "  권한 설정 없음"
-        fi
-    fi
-    
-    # 6. 홈디렉토리 권한 확인
-    append_log ""
-    print_security_check "U-05" "root 홈 디렉토리 권한 및 패스 설정"
-    print_security_check "U-06" "파일 및 디렉토리 소유자 설정"
-    for user in $(get_user_accounts); do
-        local home=$(get_home "$user")
-        if [ -d "$home" ]; then
-            local perms=$(stat -c %a "$home" 2>/dev/null || stat -f %A "$home" 2>/dev/null)
-            append_log "  $user: $home ($perms)"
-        fi
-    done
-    
-    # 7. root 계정 SSH 접속 제한 확인 (U-01)
-    append_log ""
-    print_security_check "U-01" "root 계정 원격 접속 제한"
-    if [ -f /etc/ssh/sshd_config ]; then
-        local permit_root=$(grep -w PermitRootLogin /etc/ssh/sshd_config | grep -v "^#" | awk '{print $2}')
-        append_log "  PermitRootLogin: $permit_root"
-    fi
-}
-

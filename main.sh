@@ -13,6 +13,49 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 ################################################################################
+# CLI 옵션 파싱
+################################################################################
+PARALLEL_MODE="false"
+PARALLEL_JOBS=4
+
+show_help() {
+    echo "사용법: sudo $0 [옵션]"
+    echo ""
+    echo "옵션:"
+    echo "  --parallel         병렬 실행 모드 (기본: 순차 실행)"
+    echo "  --jobs N, -j N     병렬 실행 시 동시 작업 수 (기본: 4)"
+    echo "  --help, -h         도움말 표시"
+    echo ""
+    echo "예시:"
+    echo "  sudo $0                    # 순차 실행"
+    echo "  sudo $0 --parallel         # 4개씩 병렬 실행"
+    echo "  sudo $0 --parallel -j 8    # 8개씩 병렬 실행"
+    exit 0
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --parallel)
+            PARALLEL_MODE="true"
+            shift
+            ;;
+        --jobs|-j)
+            PARALLEL_JOBS="${2:-4}"
+            shift 2
+            ;;
+        --help|-h)
+            show_help
+            ;;
+        *)
+            echo -e "${RED}[오류] 알 수 없는 옵션: $1${NC}"
+            show_help
+            ;;
+    esac
+done
+
+export PARALLEL_MODE PARALLEL_JOBS
+
+################################################################################
 # root 권한 확인
 ################################################################################
 if [ "$(id -u)" -ne 0 ]; then
@@ -32,13 +75,14 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="${LOGS_DIR}/run_${TIMESTAMP}.log"
 RESULT_FILE="${RESULTS_DIR}/result_${TIMESTAMP}.txt"
 SUMMARY_FILE="${RESULTS_DIR}/summary_${TIMESTAMP}.md"
+JSON_FILE="${RESULTS_DIR}/result_${TIMESTAMP}.json"
 
 ################################################################################
 # 함수: OS 감지
 ################################################################################
 detect_os() {
     local os_type
-    
+
     case "$(uname -s)" in
         Linux*)
             os_type="LINUX"
@@ -50,7 +94,7 @@ detect_os() {
             os_type="UNKNOWN"
             ;;
     esac
-    
+
     echo "$os_type"
 }
 
@@ -110,6 +154,11 @@ init() {
     log "INFO" "OS: ${OS_TYPE}"
     log "INFO" "스크립트 디렉토리: ${SCRIPT_DIR}"
     log "INFO" "결과 저장: ${RESULT_FILE}"
+    if [ "$PARALLEL_MODE" = "true" ]; then
+        log "INFO" "실행 모드: 병렬 (동시 ${PARALLEL_JOBS}개)"
+    else
+        log "INFO" "실행 모드: 순차"
+    fi
 }
 
 ################################################################################
@@ -215,8 +264,14 @@ main() {
     # OS 감지
     OS_TYPE=$(detect_os)
     
+    # JSON 초기화
+    init_json
+
     # 초기화
     init
+
+    # 필수 명령어 사전 확인
+    check_prerequisites
     
     # OS별 스크립트 실행
     case "$OS_TYPE" in
@@ -224,7 +279,7 @@ main() {
             local DISTRO=$(detect_linux_distro)
             log "INFO" "Linux 배포판: ${DISTRO}"
             log "INFO" "Linux 스크립트 실행 중..."
-            
+
             if [ -f "${SCRIPTS_DIR}/linux.sh" ]; then
                 source "${SCRIPTS_DIR}/linux.sh"
                 run_linux_checks "$DISTRO"
@@ -238,7 +293,7 @@ main() {
             local MACOS_VERSION=$(detect_macos_version)
             log "INFO" "macOS 버전: ${MACOS_VERSION}"
             log "INFO" "macOS 스크립트 실행 중..."
-            
+
             if [ -f "${SCRIPTS_DIR}/macos.sh" ]; then
                 source "${SCRIPTS_DIR}/macos.sh"
                 run_macos_checks "$MACOS_VERSION"
@@ -272,11 +327,24 @@ main() {
     # 마크다운 요약 파일 생성
     generate_summary "$pass_count" "$fail_count" "$review_count" "$total_count"
 
+    # JSON 결과 파일 생성
+    local run_date
+    run_date=$(date '+%Y-%m-%dT%H:%M:%S')
+    local json_hostname
+    json_hostname=$(hostname 2>/dev/null || echo "unknown")
+    local json_distro="${DISTRO:-}"
+    local json_arch
+    json_arch=$(uname -m 2>/dev/null || echo "unknown")
+
+    generate_json "$JSON_FILE" "$run_date" "$json_hostname" "$OS_TYPE" "$json_distro" "$json_arch" \
+        "$pass_count" "$fail_count" "$review_count" "$total_count"
+
+    log "INFO" "JSON 저장: ${JSON_FILE}"
     log "INFO" "요약 저장: ${SUMMARY_FILE}"
 
     # 종료 처리
     if [ $result -eq 0 ]; then
-        finalize 0 "모든 검사 완료 (총 ${total_count}개 | 양호 ${pass_count} / 취약 ${fail_count} / 확인필요 ${review_count})"
+        finalize 0 "모든 검사 완료 (총 ${total_count}개 | 양호 ${pass_count} / 취약 ${fail_count} / 확인필요 ${review_count}) | JSON: ${JSON_FILE}"
     else
         finalize 1 "검사 중 오류 발생"
     fi

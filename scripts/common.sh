@@ -8,6 +8,113 @@
 source "$(dirname "${BASH_SOURCE[0]}")/security_codes.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/security_details.sh"
 
+################################################################################
+# JSON 출력 관련 변수 및 함수
+################################################################################
+
+# JSON 결과를 누적할 임시 파일
+JSON_CHECKS_TMP=""
+
+# JSON 초기화
+init_json() {
+    JSON_CHECKS_TMP=$(mktemp /tmp/vuln_json_XXXXXX 2>/dev/null || echo "/tmp/vuln_json_$$")
+    > "$JSON_CHECKS_TMP"
+}
+
+# JSON 문자열 이스케이프
+json_escape() {
+    local str="$1"
+    str="${str//\\/\\\\}"
+    str="${str//\"/\\\"}"
+    str="${str//$'\n'/\\n}"
+    str="${str//$'\r'/}"
+    str="${str//$'\t'/\\t}"
+    echo -n "$str"
+}
+
+# 점검 코드에서 카테고리 결정
+get_category() {
+    local code="$1"
+    local num="${code#U-}"
+    num=$((10#$num))
+    if [ "$num" -ge 1 ] && [ "$num" -le 13 ]; then
+        echo "계정 관리"
+    elif [ "$num" -ge 14 ] && [ "$num" -le 33 ]; then
+        echo "파일 및 디렉토리 관리"
+    elif [ "$num" -ge 34 ] && [ "$num" -le 67 ]; then
+        echo "서비스 관리"
+    else
+        echo "로그 및 감시"
+    fi
+}
+
+# JSON 점검 결과 추가
+record_json_check() {
+    local code="$1"
+    local status="$2"
+    local detail="$3"
+    local name=$(json_escape "${SECURITY_CODES[$code]}")
+    local category=$(json_escape "$(get_category "$code")")
+    local esc_detail=$(json_escape "$detail")
+    local purpose=$(json_escape "${SECURITY_DETAILS[${code}_PURPOSE]}")
+    local check=$(json_escape "${SECURITY_DETAILS[${code}_CHECK]}")
+    local good=$(json_escape "${SECURITY_DETAILS[${code}_GOOD]}")
+    local bad=$(json_escape "${SECURITY_DETAILS[${code}_BAD]}")
+    local action=$(json_escape "${SECURITY_DETAILS[${code}_ACTION]}")
+    local threat=$(json_escape "${SECURITY_DETAILS[${code}_THREAT]}")
+
+    cat >> "$JSON_CHECKS_TMP" <<JSONENTRY
+{"code":"${code}","name":"${name}","category":"${category}","status":"${status}","detail":"${esc_detail}","reference":{"purpose":"${purpose}","check":"${check}","goodCriteria":"${good}","badCriteria":"${bad}","remediation":"${action}","threat":"${threat}"}},
+JSONENTRY
+}
+
+# 최종 JSON 파일 생성
+generate_json() {
+    local json_file="$1"
+    local exec_time="$2"
+    local hostname="$3"
+    local os_type="$4"
+    local distro="$5"
+    local arch="$6"
+    local pass_count="$7"
+    local fail_count="$8"
+    local review_count="$9"
+    local total_count="${10}"
+
+    local esc_hostname=$(json_escape "$hostname")
+    local esc_distro=$(json_escape "$distro")
+
+    # checks 배열 생성 (마지막 콤마 제거)
+    local checks_json=""
+    if [ -f "$JSON_CHECKS_TMP" ] && [ -s "$JSON_CHECKS_TMP" ]; then
+        checks_json=$(sed '$ s/,$//' "$JSON_CHECKS_TMP")
+    fi
+
+    cat > "$json_file" <<JSONEOF
+{
+  "metadata": {
+    "executionTime": "${exec_time}",
+    "hostname": "${esc_hostname}",
+    "os": "${os_type}",
+    "distro": "${esc_distro}",
+    "architecture": "${arch}"
+  },
+  "summary": {
+    "total": ${total_count},
+    "pass": ${pass_count},
+    "fail": ${fail_count},
+    "review": ${review_count}
+  },
+  "checks": [
+${checks_json}
+  ]
+}
+JSONEOF
+
+    # 임시 파일 정리
+    rm -f "$JSON_CHECKS_TMP" 2>/dev/null
+}
+
 # 보안 검사 항목 출력 (코드 + 이름 + 상세정보 + 구분선)
 print_security_check() {
     local code="$1"
@@ -50,8 +157,13 @@ record_check_result() {
     if [ -n "$detail" ]; then
         append_log "  상세: $detail"
     fi
-    
+
     append_log "────────────────────────────────────────"
+
+    # JSON 결과 누적
+    if [ -n "$JSON_CHECKS_TMP" ]; then
+        record_json_check "$code" "$status" "$detail"
+    fi
 }
 
 # 로그 파일 추가
@@ -75,6 +187,65 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# 필수 명령어 확인 (없으면 REVIEW 처리)
+# 사용법: require_command "systemctl" "$code" "systemctl 명령어 없음" || return
+require_command() {
+    local cmd="$1"
+    local code="$2"
+    local msg="${3:-${cmd} 명령어를 사용할 수 없음}"
+    if ! command_exists "$cmd"; then
+        if [ -n "$code" ]; then
+            record_check_result "$code" "REVIEW" "$msg"
+        fi
+        return 1
+    fi
+    return 0
+}
+
+# 필수 파일 확인 (없으면 REVIEW 처리)
+# 사용법: require_file "/etc/passwd" "$code" || return
+require_file() {
+    local filepath="$1"
+    local code="$2"
+    local msg="${3:-파일이 존재하지 않음: ${filepath}}"
+    if [ ! -f "$filepath" ]; then
+        if [ -n "$code" ]; then
+            record_check_result "$code" "REVIEW" "$msg"
+        fi
+        return 1
+    fi
+    return 0
+}
+
+# 안전한 점검 실행 래퍼 (예외 발생 시 REVIEW 처리)
+safe_check() {
+    local code="$1"
+    local func="$2"
+    if ! declare -f "$func" >/dev/null 2>&1; then
+        record_check_result "$code" "REVIEW" "점검 함수(${func})를 찾을 수 없음"
+        return
+    fi
+    # 서브셸에서 실행하여 예외 격리
+    local output
+    output=$("$func" 2>&1) || {
+        local exit_code=$?
+        if [ $exit_code -ne 0 ]; then
+            append_log "  [경고] ${func} 실행 중 오류 발생 (exit code: ${exit_code})"
+        fi
+    }
+}
+
+# 타임아웃 포함 명령 실행
+run_with_timeout() {
+    local timeout_sec="$1"
+    shift
+    if command_exists timeout; then
+        timeout "$timeout_sec" "$@" 2>/dev/null
+    else
+        "$@" 2>/dev/null
+    fi
+}
+
 # 파일 존재 확인
 file_exists() {
     [ -f "$1" ]
@@ -89,6 +260,23 @@ dir_exists() {
 check_permission() {
     local file="$1"
     [ -r "$file" ] && echo "readable" || echo "not_readable"
+}
+
+# 시스템 필수 명령어 사전 확인
+check_prerequisites() {
+    local missing=()
+    local required_cmds=("awk" "grep" "sed" "stat" "cut" "sort" "wc" "tr")
+    for cmd in "${required_cmds[@]}"; do
+        if ! command_exists "$cmd"; then
+            missing+=("$cmd")
+        fi
+    done
+    if [ ${#missing[@]} -gt 0 ]; then
+        append_log "[경고] 다음 필수 명령어가 없습니다: ${missing[*]}"
+        append_log "[경고] 일부 점검 항목이 정상 동작하지 않을 수 있습니다."
+        return 1
+    fi
+    return 0
 }
 
 ################################################################################
@@ -565,90 +753,149 @@ load_checks() {
 ################################################################################
 # 모든 점검 항목 실행 함수
 ################################################################################
+
+# 병렬 실행 플래그 (main.sh에서 설정)
+PARALLEL_MODE="${PARALLEL_MODE:-false}"
+PARALLEL_JOBS="${PARALLEL_JOBS:-4}"
+
+# 단일 점검 항목을 독립적으로 실행 (병렬용)
+_run_single_check() {
+    local check_num="$1"
+    local tmp_result="$2"
+    local tmp_json="$3"
+    local func="check_U_$(printf '%02d' "$check_num")"
+
+    # 개별 결과를 임시 파일에 기록
+    local orig_result_file="$RESULT_FILE"
+    local orig_json_tmp="$JSON_CHECKS_TMP"
+    RESULT_FILE="$tmp_result"
+    JSON_CHECKS_TMP="$tmp_json"
+    > "$RESULT_FILE"
+    > "$JSON_CHECKS_TMP"
+
+    if declare -f "$func" >/dev/null 2>&1; then
+        "$func"
+    fi
+
+    RESULT_FILE="$orig_result_file"
+    JSON_CHECKS_TMP="$orig_json_tmp"
+}
+
+# 섹션별 점검 항목 정의
+_get_section_checks() {
+    local section="$1"
+    case "$section" in
+        1) echo $(seq 1 13) ;;
+        2) echo $(seq 14 32) ;;
+        3) echo $(seq 33 60) ;;
+        4) echo $(seq 61 72) ;;
+    esac
+}
+
 run_all_checks() {
     load_checks
-    
+
+    if [ "$PARALLEL_MODE" = "true" ]; then
+        run_all_checks_parallel
+    else
+        run_all_checks_sequential
+    fi
+}
+
+run_all_checks_sequential() {
     # 섹션 1: 계정 관리 (U-01 ~ U-13)
     print_section_header "1. 계정 관리 (U-01 ~ U-13)"
-    check_U_01
-    check_U_02
-    check_U_03
-    check_U_04
-    check_U_05
-    check_U_06
-    check_U_07
-    check_U_08
-    check_U_09
-    check_U_10
-    check_U_11
-    check_U_12
-    check_U_13
-    
+    check_U_01; check_U_02; check_U_03; check_U_04; check_U_05
+    check_U_06; check_U_07; check_U_08; check_U_09; check_U_10
+    check_U_11; check_U_12; check_U_13
+
     # 섹션 2: 파일 및 디렉토리 관리 (U-14 ~ U-32)
     print_section_header "2. 파일 및 디렉토리 관리 (U-14 ~ U-32)"
-    check_U_14
-    check_U_15
-    check_U_16
-    check_U_17
-    check_U_18
-    check_U_19
-    check_U_20
-    check_U_21
-    check_U_22
-    check_U_23
-    check_U_24
-    check_U_25
-    check_U_26
-    check_U_27
-    check_U_28
-    check_U_29
-    check_U_30
-    check_U_31
-    check_U_32
-    
+    check_U_14; check_U_15; check_U_16; check_U_17; check_U_18
+    check_U_19; check_U_20; check_U_21; check_U_22; check_U_23
+    check_U_24; check_U_25; check_U_26; check_U_27; check_U_28
+    check_U_29; check_U_30; check_U_31; check_U_32
+
     # 섹션 3: 서비스 관리 (U-33 ~ U-60)
     print_section_header "3. 서비스 관리 (U-34 ~ U-67)"
-    check_U_33
-    check_U_34
-    check_U_35
-    check_U_36
-    check_U_37
-    check_U_38
-    check_U_39
-    check_U_40
-    check_U_41
-    check_U_42
-    check_U_43
-    check_U_44
-    check_U_45
-    check_U_46
-    check_U_47
-    check_U_48
-    check_U_49
-    check_U_50
-    check_U_51
-    check_U_52
-    check_U_53
-    check_U_54
-    check_U_55
-    check_U_56
-    check_U_57
-    check_U_58
-    check_U_59
-    check_U_60
-    
+    check_U_33; check_U_34; check_U_35; check_U_36; check_U_37
+    check_U_38; check_U_39; check_U_40; check_U_41; check_U_42
+    check_U_43; check_U_44; check_U_45; check_U_46; check_U_47
+    check_U_48; check_U_49; check_U_50; check_U_51; check_U_52
+    check_U_53; check_U_54; check_U_55; check_U_56; check_U_57
+    check_U_58; check_U_59; check_U_60
+
     # 섹션 4: 로그 및 감시, 기타 보안 (U-61 ~ U-72)
     print_section_header "4. 로그 및 감시, 기타 보안 (U-61 ~ U-72)"
-    check_U_61
-    check_U_62
-    check_U_63
-    check_U_64
-    check_U_65
-    check_U_66
-    check_U_67
-    check_U_68
-    check_U_69
-    check_U_70
-    check_U_71
-    check_U_72
+    check_U_61; check_U_62; check_U_63; check_U_64; check_U_65
+    check_U_66; check_U_67; check_U_68; check_U_69; check_U_70
+    check_U_71; check_U_72
+}
+
+run_all_checks_parallel() {
+    local tmp_dir
+    tmp_dir=$(mktemp -d /tmp/vuln_parallel_XXXXXX 2>/dev/null || echo "/tmp/vuln_parallel_$$")
+    mkdir -p "$tmp_dir"
+
+    local sections=("1:계정 관리 (U-01 ~ U-13)" "2:파일 및 디렉토리 관리 (U-14 ~ U-32)" "3:서비스 관리 (U-34 ~ U-67)" "4:로그 및 감시, 기타 보안 (U-61 ~ U-72)")
+
+    for section_info in "${sections[@]}"; do
+        local sec_num="${section_info%%:*}"
+        local sec_name="${section_info#*:}"
+        local checks
+        checks=$(_get_section_checks "$sec_num")
+
+        print_section_header "${sec_num}. ${sec_name}"
+
+        local pids=()
+        local check_files=()
+
+        for num in $checks; do
+            local padded
+            padded=$(printf '%02d' "$num")
+            local tmp_result="${tmp_dir}/result_U-${padded}.txt"
+            local tmp_json="${tmp_dir}/json_U-${padded}.txt"
+
+            (
+                # 서브셸에서 공통 변수 재설정
+                export RESULT_FILE="$tmp_result"
+                export JSON_CHECKS_TMP="$tmp_json"
+                > "$RESULT_FILE"
+                > "$JSON_CHECKS_TMP"
+
+                local func="check_U_${padded}"
+                if declare -f "$func" >/dev/null 2>&1; then
+                    "$func"
+                fi
+            ) &
+            pids+=($!)
+            check_files+=("$padded")
+
+            # 동시 실행 수 제한
+            if [ ${#pids[@]} -ge "$PARALLEL_JOBS" ]; then
+                wait "${pids[0]}" 2>/dev/null
+                pids=("${pids[@]:1}")
+            fi
+        done
+
+        # 남은 프로세스 대기
+        for pid in "${pids[@]}"; do
+            wait "$pid" 2>/dev/null
+        done
+
+        # 결과를 순서대로 병합
+        for padded in "${check_files[@]}"; do
+            local tmp_result="${tmp_dir}/result_U-${padded}.txt"
+            local tmp_json="${tmp_dir}/json_U-${padded}.txt"
+            if [ -f "$tmp_result" ] && [ -s "$tmp_result" ]; then
+                cat "$tmp_result" >> "$RESULT_FILE"
+            fi
+            if [ -f "$tmp_json" ] && [ -s "$tmp_json" ]; then
+                cat "$tmp_json" >> "$JSON_CHECKS_TMP"
+            fi
+        done
+    done
+
+    # 임시 디렉토리 정리
+    rm -rf "$tmp_dir" 2>/dev/null
 }

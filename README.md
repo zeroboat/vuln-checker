@@ -1,12 +1,15 @@
 # Vulnerability Checker
 
 > 주요정보통신기반시설 기술적 취약점 분석·평가 방법 상세가이드 기반
-> Unix/Linux/macOS 서버 보안 점검 스크립트 (U-01 ~ U-72)
+> Unix/Linux/macOS/Windows 서버 보안 점검 스크립트 (U-01 ~ U-72 / W-01 ~ W-68)
+
+🔗 **[결과 뷰어 온라인 데모](https://zeroboat.github.io/vuln-checker/)** — JSON 파일 업로드 없이 링크만으로 보고서 공유 가능
 
 ---
 
 ## 목차
 
+- [결과 뷰어](#결과-뷰어)
 - [요구 사항](#요구-사항)
 - [프로젝트 구조](#프로젝트-구조)
 - [실행 방법](#실행-방법)
@@ -14,6 +17,27 @@
 - [점검 항목](#점검-항목)
 - [지원 환경](#지원-환경)
 - [결과 판정 기준](#결과-판정-기준)
+
+---
+
+## 결과 뷰어
+
+점검 후 생성된 JSON 파일을 브라우저에서 시각화할 수 있습니다.
+
+**온라인:** [https://zeroboat.github.io/vuln-checker/](https://zeroboat.github.io/vuln-checker/)
+
+**로컬:** `viewer/index.html` 을 브라우저로 직접 열기
+
+### 주요 기능
+
+| 기능 | 설명 |
+|------|------|
+| 🔴 위험도 점수 | KISA 중요도 가중치 적용 (0~100점) |
+| ⚡ Fix-First 액션보드 | FAIL 항목 + 조치 명령어가 첫 화면에 표시, 클립보드 복사 |
+| 📊 비교 분석 | 이전·현재 결과 JSON 2개 로드 → 신규 취약/해결/유지 diff 표시 |
+| 🔗 링크 공유 | JSON을 URL에 인코딩 — 파일 없이 링크 하나로 보고서 공유 |
+| 🌙 다크모드 | 라이트/다크 테마 전환 |
+| 📄 PDF 내보내기 | 결과를 PDF로 저장 |
 
 ---
 
@@ -43,8 +67,18 @@ vuln-checker/
 │   ├── macos.sh                     # macOS (Monterey 이상)
 │   └── checks/
 │       ├── U-01.sh ~ U-72.sh        # 개별 점검 파일 (72개)
+├── windows/
+│   ├── main.ps1                     # Windows 진입점 (PowerShell)
+│   └── scripts/
+│       ├── common.ps1               # 공통 함수
+│       ├── security_codes.ps1       # W-01 ~ W-68 코드·명칭 매핑
+│       └── checks/
+│           └── W-01.ps1 ~ W-68.ps1  # 개별 점검 파일 (68개)
+├── viewer/
+│   └── index.html                   # 결과 뷰어 (단일 HTML, CDN 의존)
 ├── results/                         # 점검 결과 저장
 │   ├── result_YYYYMMDD_HHMMSS.txt   # 전체 상세 결과
+│   ├── result_YYYYMMDD_HHMMSS.json  # JSON 결과 (뷰어용)
 │   └── summary_YYYYMMDD_HHMMSS.md   # 요약 보고서 (Markdown)
 ├── logs/
 │   └── run_YYYYMMDD_HHMMSS.log      # 실행 로그

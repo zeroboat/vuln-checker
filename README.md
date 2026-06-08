@@ -2,6 +2,7 @@
 
 > 주요정보통신기반시설 기술적 취약점 분석·평가 방법 상세가이드 기반
 > Unix/Linux/macOS/Windows 서버 보안 점검 스크립트 (U-01 ~ U-72 / W-01 ~ W-68)
+> Docker 환경 자동 감지 시 CIS Docker Benchmark v1.6.0 기반 점검 스크립트 자동 실행 (D-01 ~ D-68)
 
 🔗 **[결과 뷰어 온라인 데모](https://zeroboat.github.io/vuln-checker/)** — JSON 파일 업로드 없이 링크만으로 보고서 공유 가능
 
@@ -15,6 +16,7 @@
 - [실행 방법](#실행-방법)
 - [출력 파일](#출력-파일)
 - [점검 항목](#점검-항목)
+- [Docker 점검 (CIS Docker Benchmark)](#docker-점검-cis-docker-benchmark)
 - [지원 환경](#지원-환경)
 - [결과 판정 기준](#결과-판정-기준)
 
@@ -67,6 +69,20 @@ vuln-checker/
 │   ├── macos.sh                     # macOS (Monterey 이상)
 │   └── checks/
 │       ├── U-01.sh ~ U-72.sh        # 개별 점검 파일 (72개)
+├── docker/
+│   ├── main.sh                      # Docker 점검 진입점 (main.sh에서 자동 호출)
+│   └── scripts/
+│       ├── common.sh                # Docker 공통 함수 라이브러리
+│       ├── security_codes.sh        # D-01 ~ D-68 코드·명칭 매핑
+│       ├── security_details.sh      # 각 항목별 점검 목적·기준·조치 상세
+│       └── checks/
+│           ├── section1.sh          # 호스트 설정 (D-01 ~ D-07)
+│           ├── section2.sh          # 데몬 설정 (D-08 ~ D-25)
+│           ├── section3.sh          # 설정 파일 권한 (D-26 ~ D-37)
+│           ├── section4.sh          # 이미지 및 빌드 (D-38 ~ D-47)
+│           ├── section5.sh          # 컨테이너 런타임 (D-48 ~ D-62)
+│           ├── section6.sh          # 보안 운영 (D-63 ~ D-65)
+│           └── section7.sh          # Swarm 설정 (D-66 ~ D-68)
 ├── windows/
 │   ├── main.ps1                     # Windows 진입점 (PowerShell)
 │   └── scripts/
@@ -108,7 +124,7 @@ root 권한이 없으면 아래 메시지와 함께 즉시 종료됩니다.
 
 ## 출력 파일
 
-실행이 완료되면 `results/` 디렉토리에 두 파일이 생성됩니다.
+실행이 완료되면 `results/` 디렉토리에 파일이 생성됩니다. Docker가 감지되면 Docker 전용 결과 파일도 함께 생성됩니다.
 
 ### 1. 상세 결과 — `result_YYYYMMDD_HHMMSS.txt`
 
@@ -242,6 +258,49 @@ root 권한이 없으면 아래 메시지와 함께 즉시 종료됩니다.
 | U-70 | 원격 접속 보안 설정 (SSH 세션·인증 강화) |
 | U-71 | 불필요한 계정 및 그룹 관리 |
 | U-72 | 보안 패치 적용 |
+
+---
+
+## Docker 점검 (CIS Docker Benchmark)
+
+`main.sh` 실행 시 호스트에 Docker가 설치·구동 중이면 OS 점검 이후 자동으로 **CIS Docker Benchmark v1.6.0** 기반 점검이 추가로 수행됩니다.
+
+### 자동 실행 조건
+
+- `docker` 바이너리가 PATH에 존재 (`command -v docker`)
+- Docker 데몬이 실행 중 (`docker info` 성공)
+
+별도 옵션이나 플래그 없이 `sudo ./main.sh`만으로 Docker 점검까지 함께 실행됩니다.
+
+### Docker 점검 결과 파일
+
+Docker 점검 결과는 OS 결과와 **별도 파일**로 저장됩니다.
+
+| 파일 | 설명 |
+|------|------|
+| `results/docker_result_YYYYMMDD_HHMMSS.txt` | 상세 점검 결과 |
+| `results/docker_result_YYYYMMDD_HHMMSS.json` | JSON 결과 (뷰어 업로드 가능) |
+
+뷰어에서 OS 결과와 Docker 결과를 각각 업로드하여 확인하거나, **비교 분석** 기능으로 두 결과를 나란히 볼 수 있습니다.
+
+### Docker 점검 항목 (D-01 ~ D-68)
+
+총 **68개 항목**을 7개 섹션으로 점검합니다.
+
+| 섹션 | 범위 | 항목 수 | 내용 |
+|------|------|---------|------|
+| 1. 호스트 설정 | D-01 ~ D-07 | 7 | 커널 버전, Docker 전용 파티션, 그룹 멤버, auditd 설정 |
+| 2. 데몬 설정 | D-08 ~ D-25 | 18 | ICC, 로깅, iptables, TLS, userns-remap, seccomp 등 |
+| 3. 설정 파일 권한 | D-26 ~ D-37 | 12 | docker.service/socket, /etc/docker, TLS 인증서 권한 |
+| 4. 이미지 및 빌드 | D-38 ~ D-47 | 10 | non-root 실행, 취약점 스캔, 민감 정보, HEALTHCHECK |
+| 5. 컨테이너 런타임 | D-48 ~ D-62 | 15 | privileged, 민감 마운트, SSH, 네트워크 격리, 리소스 제한 |
+| 6. 보안 운영 | D-63 ~ D-65 | 3 | 이미지 업데이트, 정지 컨테이너, 컨테이너 수 모니터링 |
+| 7. Swarm 설정 | D-66 ~ D-68 | 3 | Swarm 비활성화, 매니저 최소화, Secret 관리 |
+
+### 참고 표준
+
+- **CIS Docker Benchmark v1.6.0** (Center for Internet Security)
+- 공식 문서: https://www.cisecurity.org/benchmark/docker
 
 ---
 

@@ -309,6 +309,19 @@ main() {
             ;;
     esac
     
+    # Docker 자동 감지 및 점검 실행
+    if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+        log "INFO" "Docker 감지됨 — Docker 보안 점검 실행 중..."
+        echo -e "${BLUE}[Docker] Docker 환경이 감지되었습니다. CIS Docker Benchmark 점검을 시작합니다...${NC}"
+        if [ -f "${SCRIPT_DIR}/docker/main.sh" ]; then
+            export RESULTS_DIR
+            source "${SCRIPT_DIR}/docker/main.sh"
+            run_docker_checks
+        else
+            log "ERROR" "docker/main.sh를 찾을 수 없습니다"
+        fi
+    fi
+
     # 결과 집계
     local pass_count fail_count review_count
     pass_count=$(grep -c "점검 결과: 양호"    "$RESULT_FILE" 2>/dev/null || echo 0)

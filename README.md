@@ -83,6 +83,19 @@ vuln-checker/
 │           ├── section5.sh          # 컨테이너 런타임 (D-48 ~ D-62)
 │           ├── section6.sh          # 보안 운영 (D-63 ~ D-65)
 │           └── section7.sh          # Swarm 설정 (D-66 ~ D-68)
+├── cis-linux/
+│   ├── main.sh                      # CIS Linux 점검 진입점 (--profile cis-linux/all)
+│   └── scripts/
+│       ├── common.sh                # CIS Linux 공통 함수 라이브러리
+│       ├── security_codes.sh        # CL-01 ~ CL-44 코드·명칭 매핑
+│       ├── security_details.sh      # 각 항목별 점검 목적·기준·조치 상세
+│       └── checks/
+│           ├── section1.sh          # 초기 설정 (CL-01 ~ CL-10)
+│           ├── section2.sh          # 서비스 (CL-11 ~ CL-17)
+│           ├── section3.sh          # 네트워크 설정 (CL-18 ~ CL-26)
+│           ├── section4.sh          # 로깅 및 감사 (CL-27 ~ CL-31)
+│           ├── section5.sh          # 접근 및 인증 (CL-32 ~ CL-38)
+│           └── section6.sh          # 시스템 유지보수 (CL-39 ~ CL-44)
 ├── windows/
 │   ├── main.ps1                     # Windows 진입점 (PowerShell)
 │   └── scripts/
@@ -105,6 +118,8 @@ vuln-checker/
 
 ## 실행 방법
 
+> **요구사항: bash 4.0 이상.** Docker(`D-XX`)·CIS Linux(`CL-XX`) 점검은 연관 배열(`declare -A`)을 사용하므로 bash 4.0+ 가 필요합니다. 대부분의 Linux 배포판은 기본 충족하지만, macOS 기본 bash는 3.2이므로 `--profile docker`/`--profile cis-linux`를 macOS에서 직접 실행하려면 `brew install bash`로 최신 bash를 설치한 뒤 실행하세요. (주기반 `U-XX` 점검은 영향 없음)
+
 ```bash
 # 실행 권한 부여 (최초 1회)
 chmod +x main.sh
@@ -118,6 +133,38 @@ root 권한이 없으면 아래 메시지와 함께 즉시 종료됩니다.
 ```
 [오류] 이 스크립트는 root 권한으로 실행해야 합니다.
   실행 방법: sudo ./main.sh
+```
+
+### 실행 옵션
+
+| 옵션 | 설명 |
+|------|------|
+| `--profile NAME` | 점검 기준(프로파일) 선택 (기본: `default`) |
+| `--parallel` | 병렬 실행 모드 (기본: 순차 실행) |
+| `--jobs N`, `-j N` | 병렬 실행 시 동시 작업 수 (기본: 4) |
+| `--list-profiles` | 사용 가능한 프로파일 목록 표시 |
+| `--help`, `-h` | 도움말 표시 |
+
+### 점검 프로파일
+
+`--profile` 옵션으로 어떤 기준의 점검을 실행할지 선택할 수 있습니다.
+
+| 프로파일 | 점검 대상 | 상태 |
+|----------|-----------|------|
+| `default` | 주요정보통신기반시설(U-01~U-72) + Docker 자동 감지 | ✅ (기본값) |
+| `kisa` | 주요정보통신기반시설 점검만 (U-01~U-72) | ✅ |
+| `docker` | Docker CIS Benchmark 점검만 (D-01~D-68) | ✅ |
+| `cis-linux` | CIS Linux Benchmark 점검 (CL-01~CL-44) | ✅ |
+| `all` | 구현된 모든 기준 실행 (주기반 + Docker + CIS Linux) | ✅ |
+| `isms-p` | ISMS-P 기술적 보호조치 | 🚧 준비 중 |
+
+```bash
+sudo ./main.sh                      # 기본 (주기반 + Docker 자동감지)
+sudo ./main.sh --profile kisa       # 주기반 점검만
+sudo ./main.sh --profile docker     # Docker 점검만
+sudo ./main.sh --profile cis-linux  # CIS Linux Benchmark 점검만
+sudo ./main.sh --profile all        # 모든 기준 실행
+sudo ./main.sh --parallel -j 8      # 8개씩 병렬 실행
 ```
 
 ---
@@ -270,7 +317,7 @@ root 권한이 없으면 아래 메시지와 함께 즉시 종료됩니다.
 - `docker` 바이너리가 PATH에 존재 (`command -v docker`)
 - Docker 데몬이 실행 중 (`docker info` 성공)
 
-별도 옵션이나 플래그 없이 `sudo ./main.sh`만으로 Docker 점검까지 함께 실행됩니다.
+기본 프로파일(`default`)에서는 별도 옵션 없이 `sudo ./main.sh`만으로 Docker 점검까지 함께 실행됩니다. Docker만 점검하려면 `--profile docker`, OS 점검만 하려면 `--profile kisa`를 사용하세요.
 
 ### Docker 점검 결과 파일
 
@@ -301,6 +348,41 @@ Docker 점검 결과는 OS 결과와 **별도 파일**로 저장됩니다.
 
 - **CIS Docker Benchmark v1.6.0** (Center for Internet Security)
 - 공식 문서: https://www.cisecurity.org/benchmark/docker
+
+---
+
+## CIS Linux Benchmark 점검
+
+`--profile cis-linux` (또는 `--profile all`) 실행 시 **CIS Linux Benchmark** 기반의 OS 보안 점검이 수행됩니다. 주요정보통신기반시설(U-XX)과는 별개의 국제 표준 기준으로, sysctl 커널 파라미터·마운트 옵션·서비스·감사 설정 등 자동화 친화적인 항목을 점검합니다.
+
+> Linux 환경에서만 의미가 있습니다. macOS 등에서는 일부 항목이 `확인필요`로 처리됩니다.
+
+### CIS Linux 점검 결과 파일
+
+CIS Linux 점검 결과도 **별도 파일**로 저장됩니다.
+
+| 파일 | 설명 |
+|------|------|
+| `results/cis_linux_result_YYYYMMDD_HHMMSS.txt` | 상세 점검 결과 |
+| `results/cis_linux_result_YYYYMMDD_HHMMSS.json` | JSON 결과 (뷰어 업로드 가능) |
+
+### CIS Linux 점검 항목 (CL-01 ~ CL-44)
+
+총 **44개 항목**을 6개 섹션으로 점검합니다.
+
+| 섹션 | 범위 | 항목 수 | 내용 |
+|------|------|---------|------|
+| 1. 초기 설정 | CL-01 ~ CL-10 | 10 | 파일시스템 모듈, 파티션 분리·마운트 옵션, ASLR, MAC, 배너 |
+| 2. 서비스 | CL-11 ~ CL-17 | 7 | inetd, 시간 동기화, 불필요 서버/클라이언트, X Window, rsync |
+| 3. 네트워크 설정 | CL-18 ~ CL-26 | 9 | IP 포워딩, 리다이렉트, source route, log_martians, SYN 쿠키, 방화벽 |
+| 4. 로깅 및 감사 | CL-27 ~ CL-31 | 5 | auditd, syslog/journald, 로그 권한, audit 저장 정책, logrotate |
+| 5. 접근 및 인증 | CL-32 ~ CL-38 | 7 | cron 권한, cron/at 제한, SSH 보안, 패스워드 정책, sudo |
+| 6. 시스템 유지보수 | CL-39 ~ CL-44 | 6 | passwd/shadow/group 권한, world-writable, unowned 파일, UID 0 |
+
+### 참고 표준
+
+- **CIS Benchmarks for Linux** (Center for Internet Security)
+- 공식 문서: https://www.cisecurity.org/cis-benchmarks
 
 ---
 

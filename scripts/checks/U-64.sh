@@ -10,7 +10,7 @@ check_U_64() {
     if command_exists apt; then
         # Debian/Ubuntu: 보안 업데이트 확인
         local security_updates
-        security_updates=$(apt list --upgradable 2>/dev/null | grep -c "security" 2>/dev/null || echo 0)
+        security_updates=$(apt list --upgradable 2>/dev/null | grep -c "security" 2>/dev/null)
         append_log "  대기 중인 보안 업데이트: ${security_updates}개"
         if [ "$security_updates" -gt 0 ] 2>/dev/null; then
             fail=true
@@ -26,7 +26,7 @@ check_U_64() {
         local pkg_manager
         command_exists dnf && pkg_manager="dnf" || pkg_manager="yum"
         local security_updates
-        security_updates=$($pkg_manager check-update --security 2>/dev/null | grep -c "^[a-zA-Z]" || echo 0)
+        security_updates=$($pkg_manager check-update --security 2>/dev/null | grep -c "^[a-zA-Z]")
         append_log "  대기 중인 보안 업데이트: ${security_updates}개"
         [ "$security_updates" -gt 0 ] 2>/dev/null && fail=true
     fi

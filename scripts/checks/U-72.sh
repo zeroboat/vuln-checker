@@ -14,7 +14,7 @@ check_U_72() {
         append_log "  업데이트 가능한 패키지: ${upgradable}개"
 
         local security_upgradable
-        security_upgradable=$(apt list --upgradable 2>/dev/null | grep -c "security" 2>/dev/null || echo 0)
+        security_upgradable=$(apt list --upgradable 2>/dev/null | grep -c "security" 2>/dev/null)
         append_log "  보안 업데이트: ${security_upgradable}개"
 
         if [ "$security_upgradable" -gt 0 ] 2>/dev/null; then
@@ -23,13 +23,13 @@ check_U_72() {
 
     elif command_exists yum; then
         local security_updates
-        security_updates=$(yum check-update --security -q 2>/dev/null | grep -c "^[a-zA-Z]" || echo 0)
+        security_updates=$(yum check-update --security -q 2>/dev/null | grep -c "^[a-zA-Z]")
         append_log "  대기 중인 yum 보안 업데이트: ${security_updates}개"
         [ "$security_updates" -gt 0 ] && fail=true
 
     elif command_exists dnf; then
         local security_updates
-        security_updates=$(dnf check-update --security -q 2>/dev/null | grep -c "^[a-zA-Z]" || echo 0)
+        security_updates=$(dnf check-update --security -q 2>/dev/null | grep -c "^[a-zA-Z]")
         append_log "  대기 중인 dnf 보안 업데이트: ${security_updates}개"
         [ "$security_updates" -gt 0 ] && fail=true
 

@@ -14,7 +14,7 @@ check_U_08() {
             members=$(getent group "$grp" | cut -d: -f4)
             append_log "  그룹 ${grp}: ${members:-없음}"
             local count
-            count=$(echo "$members" | tr ',' '\n' | grep -c "[a-zA-Z]" 2>/dev/null || echo 0)
+            count=$(echo "$members" | tr ',' '\n' | grep -c "[a-zA-Z]" 2>/dev/null)
             total_admins=$((total_admins + count))
         fi
     done

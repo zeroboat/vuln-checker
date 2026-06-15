@@ -29,7 +29,7 @@ check_U_23() {
     done <<< "$suid_files"
 
     local total
-    total=$(echo "$suid_files" | grep -c . 2>/dev/null || echo 0)
+    total=$(echo "$suid_files" | grep -c . 2>/dev/null)
     local unexpected_count=${#unexpected[@]}
     append_log "  SUID/SGID 파일 총 ${total}개 (비표준: ${unexpected_count}개)"
 

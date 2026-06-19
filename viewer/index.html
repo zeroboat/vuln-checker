@@ -255,6 +255,7 @@ body{font-family:'Segoe UI',-apple-system,sans-serif;background:var(--bg);color:
   <div class="header">
     <h1>🛡️ 취약점 점검 결과</h1>
     <div class="header-btns">
+      <button class="header-btn" id="backBtn" onclick="resetFile()" style="display:none">← 뒤로</button>
       <button class="header-btn" id="shareLinkBtn" onclick="generateShareLink()" style="display:none">🔗 링크 공유</button>
       <button class="header-btn" id="compareBtn" onclick="openCompareModal()" style="display:none">📊 비교 분석</button>
       <button class="header-btn" id="themeBtn" onclick="toggleTheme()">🌙 다크모드</button>
@@ -497,6 +498,7 @@ function resetFile() {
   document.getElementById('dashboard').classList.remove('active');
   uploadZone.style.display = '';
   document.getElementById('sampleZone').style.display = '';
+  document.getElementById('backBtn').style.display = 'none';
   document.getElementById('shareLinkBtn').style.display = 'none';
   document.getElementById('compareBtn').style.display = 'none';
 }
@@ -543,6 +545,7 @@ function render() {
   uploadZone.style.display = 'none';
   document.getElementById('sampleZone').style.display = 'none';
   document.getElementById('dashboard').classList.add('active');
+  document.getElementById('backBtn').style.display = '';
   document.getElementById('shareLinkBtn').style.display = '';
   document.getElementById('compareBtn').style.display = '';
   renderCompareBanner();

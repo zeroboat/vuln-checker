@@ -49,3 +49,6 @@ node_modules/
 logs/
 results/
 .claude/
+
+# Claude Code 로컬 설정 (추적 제외)
+CLAUDE.md

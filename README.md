@@ -30,10 +30,13 @@
 
 **로컬:** `viewer/index.html` 을 브라우저로 직접 열기
 
+> 💡 직접 점검을 돌리지 않아도, 업로드 화면의 **예시 결과 보기** 버튼(주기반 / CIS Linux)으로 대시보드를 바로 체험할 수 있습니다. 예시 데이터는 `viewer/samples/`에 포함되어 있습니다. (로컬에서 `file://`로 열면 브라우저 보안 정책상 예시 로드가 막히므로 GitHub Pages 또는 `python3 -m http.server`로 여세요.)
+
 ### 주요 기능
 
 | 기능 | 설명 |
 |------|------|
+| 📋 예시 결과 보기 | 업로드 없이 주기반·CIS Linux 데모 결과로 대시보드 즉시 체험 |
 | 🔴 위험도 점수 | KISA 중요도 가중치 적용 (0~100점) |
 | ⚡ Fix-First 액션보드 | FAIL 항목 + 조치 명령어가 첫 화면에 표시, 클립보드 복사 |
 | 📊 비교 분석 | 이전·현재 결과 JSON 2개 로드 → 신규 취약/해결/유지 diff 표시 |
@@ -104,7 +107,10 @@ vuln-checker/
 │       └── checks/
 │           └── W-01.ps1 ~ W-68.ps1  # 개별 점검 파일 (68개)
 ├── viewer/
-│   └── index.html                   # 결과 뷰어 (단일 HTML, CDN 의존)
+│   ├── index.html                   # 결과 뷰어 (단일 HTML, CDN 의존)
+│   └── samples/                     # 뷰어 예시 결과 (주기반 / CIS Linux)
+│       ├── sample_kisa.json
+│       └── sample_cis_linux.json
 ├── results/                         # 점검 결과 저장
 │   ├── result_YYYYMMDD_HHMMSS.txt   # 전체 상세 결과
 │   ├── result_YYYYMMDD_HHMMSS.json  # JSON 결과 (뷰어용)

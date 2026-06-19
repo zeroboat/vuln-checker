@@ -1,0 +1,1097 @@
+{
+  "metadata": {
+    "executionTime": "2026-06-19T07:42:45",
+    "hostname": "demo-server",
+    "os": "LINUX",
+    "distro": "ubuntu",
+    "architecture": "aarch64"
+  },
+  "summary": {
+    "total": 72,
+    "pass": 48,
+    "fail": 19,
+    "review": 5
+  },
+  "checks": [
+    {
+      "code": "U-01",
+      "name": "root 계정 원격 접속 제한",
+      "category": "계정 관리",
+      "status": "FAIL",
+      "detail": "root 원격 접속이 허용되어 있음 (현재: yes)",
+      "reference": {
+        "purpose": "관리자 계정 탈취로 인한 시스템 장악을 방지하기 위해 외부 비인가자의 root 계정 접근 시도를 원천적으로 차단",
+        "check": "시스템 정책에 root 계정의 원격터미널 접속 차단 설정이 적용되었는지 점검",
+        "goodCriteria": "원격터미널 서비스를 사용하지 않거나, 사용 시 root 직접 접속을 차단한 경우",
+        "badCriteria": "원격터미널 서비스 사용 시 root 직접 접속을 허용한 경우",
+        "remediation": "원격 접속 시 root 계정으로 접속할 수 없도록 파일 내용 설정 (예: SSH의 PermitRootLogin no 설정)",
+        "threat": "root 계정은 운영체제의 모든 기능을 설정 및 변경이 가능하여 root 계정 탈취 시 무차별 대입 공격, 사전 대입 공격 등으로 인한 시스템 장악 위험"
+      }
+    },
+    {
+      "code": "U-02",
+      "name": "비밀번호 관리정책 설정",
+      "category": "계정 관리",
+      "status": "FAIL",
+      "detail": "PASS_MAX_DAYS(99999)이 90일 초과 PASS_MIN_LEN(미설정)이 8 미만 ",
+      "reference": {
+        "purpose": "사용자 비밀번호의 복잡성 및 유효기간을 설정하여 비밀번호 기반 공격으로부터 계정 보호",
+        "check": "시스템에 비밀번호 최소 길이, 복잡성, 유효기간 등의 정책이 설정되어 있는지 점검",
+        "goodCriteria": "최소 길이(8자 이상), 복잡성(대문자, 소문자, 숫자, 특수문자 혼합), 유효기간(90일 이하) 등이 설정된 경우",
+        "badCriteria": "비밀번호 정책이 미설정이거나 너무 낮은 요구사항으로 설정된 경우 (예: 4자 이하, 숫자만 허용 등)",
+        "remediation": "PAM(Pluggable Authentication Modules)을 이용하여 비밀번호 정책 설정 (암호 복잡성, 유효기간, 재사용 방지 등)",
+        "threat": "약한 비밀번호는 사전 공격, 무차별 대입 공격으로 인한 계정 탈취 위험 증가"
+      }
+    },
+    {
+      "code": "U-03",
+      "name": "계정 잠금 임계값 설정",
+      "category": "계정 관리",
+      "status": "PASS",
+      "detail": "계정 잠금 모듈이 설정됨",
+      "reference": {
+        "purpose": "로그인 실패 시도가 반복되는 비인가 접속 시도에 대응하기 위해 일정 횟수 이상 실패 시 계정을 임시 잠금",
+        "check": "시스템에 로그인 실패 시도 횟수에 따른 계정 잠금 정책이 설정되어 있는지 점검",
+        "goodCriteria": "5회 이상 로그인 실패 시 30분 이상 계정이 잠기도록 설정된 경우",
+        "badCriteria": "계정 잠금 정책이 미설정되거나 너무 높은 임계값으로 설정된 경우 (예: 50회 이상)",
+        "remediation": "PAM을 이용하여 pam_tally2 모듈을 설정하여 로그인 실패 횟수 제한 및 자동 잠금 기능 구성",
+        "threat": "계정 잠금 정책이 없으면 무차별 대입 공격으로 비밀번호를 탈취당할 수 있음"
+      }
+    },
+    {
+      "code": "U-04",
+      "name": "비밀번호 파일 보호",
+      "category": "계정 관리",
+      "status": "FAIL",
+      "detail": "비밀번호 파일 권한 설정 미흡",
+      "reference": {
+        "purpose": "중요 인증 파일(/etc/passwd, /etc/shadow)의 무결성을 보호하여 불정당한 접근 방지",
+        "check": "중요 인증 파일의 소유자 및 권한이 올바르게 설정되어 있는지 점검",
+        "goodCriteria": "/etc/passwd: 644, /etc/shadow: 600 또는 640으로 설정된 경우",
+        "badCriteria": "/etc/passwd: 755 이상 또는 /etc/shadow: 644 이상으로 설정된 경우 (일반 사용자가 읽을 수 있음)",
+        "remediation": "chmod 명령으로 적절한 권한 설정: chmod 644 /etc/passwd, chmod 600 /etc/shadow",
+        "threat": "인증 파일의 권한이 부적절하면 일반 사용자도 파일을 읽을 수 있어 비밀번호 해킹 및 권한 상승 공격 위험"
+      }
+    },
+    {
+      "code": "U-05",
+      "name": "root 이외의 UID가 '0' 금지",
+      "category": "계정 관리",
+      "status": "PASS",
+      "detail": "root 이외의 계정에서 UID 0 미사용",
+      "reference": {
+        "purpose": "root 계정과 동일한 권한을 가진 계정의 존재를 제거하여 시스템 보안 유지",
+        "check": "root 계정(UID 0) 이외에 UID가 0으로 설정된 계정이 있는지 점검",
+        "goodCriteria": "root 계정을 제외한 모든 계정의 UID가 0이 아닌 경우",
+        "badCriteria": "root 이외의 계정에 UID 0이 할당된 경우",
+        "remediation": "root가 아닌 UID 0 계정을 찾아 삭제하거나 UID 변경: usermod -u [새로운 UID] [계정명]",
+        "threat": "UID 0 계정은 root와 동일한 권한을 가져 시스템 완전 장악 위험"
+      }
+    },
+    {
+      "code": "U-06",
+      "name": "사용자 계정 su 기능 제한",
+      "category": "계정 관리",
+      "status": "FAIL",
+      "detail": "su 명령어 접근 제한 미설정 (pam_wheel.so 필요)",
+      "reference": {
+        "purpose": "su 명령을 통한 권한 상승을 관리하여 비인가 관리자 권한 획득 방지",
+        "check": "su 명령 사용이 특정 그룹(wheel, admin 등)으로만 제한되었는지 점검",
+        "goodCriteria": "일반 사용자의 su 명령 실행을 제한하고, 관리자만 사용 가능하도록 설정된 경우",
+        "badCriteria": "모든 사용자가 su 명령을 사용할 수 있도록 허용된 경우",
+        "remediation": "PAM을 통해 su 명령 접근 제한: /etc/pam.d/su 파일에서 auth required pam_wheel.so use_uid 설정",
+        "threat": "제한 없는 su 명령은 일반 사용자가 root 권한으로 변경할 수 있어 권한 상승 공격 위험"
+      }
+    },
+    {
+      "code": "U-07",
+      "name": "불필요한 계정 제거",
+      "category": "계정 관리",
+      "status": "FAIL",
+      "detail": "불필요한 기본 계정이 존재함: games(shell:/usr/sbin/nologin) news(shell:/usr/sbin/nologin) uucp(shell:/usr/sbin/nologin)",
+      "reference": {
+        "purpose": "사용하지 않는 계정을 제거하여 불필요한 접근 경로 차단",
+        "check": "시스템에 구성되어 있는 모든 사용자 계정 중 불필요한 계정이 있는지 점검",
+        "goodCriteria": "필요한 계정만 존재하고, 불필요한 계정이 제거된 경우",
+        "badCriteria": "사용하지 않는 계정이 활성화된 상태로 존재하는 경우",
+        "remediation": "불필요한 계정 확인 후 userdel 또는 usermod -L 명령으로 계정 삭제 또는 비활성화",
+        "threat": "불필요한 계정은 공격자의 침투 경로가 될 수 있으며 감시 부재로 악의적 활동이 은폐될 수 있음"
+      }
+    },
+    {
+      "code": "U-08",
+      "name": "관리자 그룹에 최소한의 계정 포함",
+      "category": "계정 관리",
+      "status": "PASS",
+      "detail": "관리자 그룹 계정 수 적절 (0명)",
+      "reference": {
+        "purpose": "시스템 관리 권한을 필요한 사람만 가지도록 제한하여 권한 남용 방지",
+        "check": "wheel, admin, sudo 그룹에 포함된 계정이 최소한으로 제한되어 있는지 점검",
+        "goodCriteria": "관리자 권한이 필요한 인원만 관리자 그룹에 포함된 경우",
+        "badCriteria": "불필요한 일반 사용자까지 관리자 그룹에 포함된 경우",
+        "remediation": "gpasswd 또는 usermod 명령으로 관리자 그룹 멤버 조정: gpasswd -d [사용자명] [그룹명]",
+        "threat": "불필요한 사용자가 관리자 권한을 가지면 실수 또는 악의적 행위로 시스템 손상 위험 증대"
+      }
+    },
+    {
+      "code": "U-09",
+      "name": "계정이 존재하지 않는 GID 금지",
+      "category": "계정 관리",
+      "status": "REVIEW",
+      "detail": "멤버가 없는 그룹 존재: tty(GID:5) disk(GID:6) kmem(GID:15) dialout(GID:20) fax(GID:21) voice(GID:22) cdrom(GID:24) floppy(GID:25) tape(GID:26) sudo(GID:27) audio(GID:29) dip(GID:30) operator(GID:37) src(GID:40) shadow(GID:42) utmp(GID:43) video(GID:44) sasl(GID:45) plugdev(GID:46) staff(GID:50) users(GID:100) systemd-journal(GID:101) crontab(GID:104) _ssh(GID:108)",
+      "reference": {
+        "purpose": "고아 프로세스(orphaned process) 예방 및 파일 소유권 명확화",
+        "check": "/etc/group 파일에 정의된 GID에 실제 계정이 존재하지 않는 경우가 있는지 점검",
+        "goodCriteria": "모든 GID에 대응하는 계정이 존재하는 경우",
+        "badCriteria": "그룹은 존재하지만 멤버 계정이 없는 고아 그룹이 있는 경우",
+        "remediation": "불필요한 그룹 제거: groupdel [그룹명]",
+        "threat": "존재하지 않는 GID는 파일 권한 관리 혼동 및 감시 어려움"
+      }
+    },
+    {
+      "code": "U-10",
+      "name": "동일한 UID 금지",
+      "category": "계정 관리",
+      "status": "PASS",
+      "detail": "동일한 UID 없음",
+      "reference": {
+        "purpose": "계정 추적성 확보 및 감시 유지를 위해 각 계정에 고유 UID 할당",
+        "check": "서로 다른 계정이 동일한 UID를 가지고 있는지 점검",
+        "goodCriteria": "모든 계정이 고유한 UID를 가지는 경우",
+        "badCriteria": "두 개 이상의 계정이 동일한 UID를 공유하는 경우",
+        "remediation": "중복 UID를 가진 계정에 새로운 UID 할당: usermod -u [새로운 UID] [계정명]",
+        "threat": "동일 UID 공유 시 계정 추적 불가능하여 감시 및 책임 추적이 어려움"
+      }
+    },
+    {
+      "code": "U-11",
+      "name": "사용자 Shell 점검",
+      "category": "계정 관리",
+      "status": "FAIL",
+      "detail": "로그인 가능한 쉘을 가진 시스템 계정 존재: sync(/bin/sync)",
+      "reference": {
+        "purpose": "시스템 계정이 로그인할 수 없도록 설정하여 불필요한 접근 차단",
+        "check": "시스템 계정(UID < 1000)의 쉘이 로그인 불가능한 쉘(nologin, false 등)로 설정되었는지 점검",
+        "goodCriteria": "모든 시스템 계정이 /sbin/nologin 또는 /usr/bin/false로 설정된 경우",
+        "badCriteria": "시스템 계정이 /bin/bash, /bin/sh 등 로그인 가능한 쉘을 가진 경우",
+        "remediation": "usermod 명령으로 쉘 변경: usermod -s /sbin/nologin [시스템계정명]",
+        "threat": "시스템 계정으로 로그인 가능하면 권한 상승 또는 악의적 활동에 악용될 수 있음"
+      }
+    },
+    {
+      "code": "U-12",
+      "name": "세션 종료 시간 설정",
+      "category": "계정 관리",
+      "status": "FAIL",
+      "detail": "TMOUT 환경변수가 설정되지 않음",
+      "reference": {
+        "purpose": "사용하지 않는 세션을 자동으로 종료하여 좀비 세션으로 인한 보안 위협 제거",
+        "check": "시스템에 일정 시간 동안 활동이 없는 세션을 자동으로 종료하는 정책이 설정되어 있는지 점검",
+        "goodCriteria": "세션 유휴 시간 제한이 설정되어 있는 경우 (일반적으로 15분~30분)",
+        "badCriteria": "세션 타임아웃이 설정되지 않았거나 과도하게 길게 설정된 경우",
+        "remediation": "환경 설정 파일에 TMOUT 변수 설정: export TMOUT=600 (10분)",
+        "threat": "세션이 남아있으면 공격자가 방치된 터미널을 악용할 수 있음"
+      }
+    },
+    {
+      "code": "U-13",
+      "name": "안전한 비밀번호 암호화 알고리즘 사용",
+      "category": "계정 관리",
+      "status": "PASS",
+      "detail": "강한 암호화 알고리즘 사용: SHA512",
+      "reference": {
+        "purpose": "시스템 계정이 아닌 사용자 계정의 비밀번호 암호화 알고리즘을 안전한 것으로 설정",
+        "check": "/etc/shadow 파일에서 비밀번호 암호화 알고리즘 확인",
+        "goodCriteria": "SHA512, Argon2 등 강력한 암호화 알고리즘이 사용된 경우",
+        "badCriteria": "DES, MD5 등 취약한 암호화 알고리즘이 사용된 경우",
+        "remediation": "PAM을 이용하여 /etc/login.defs 파일의 ENCRYPT_METHOD를 SHA512 이상으로 설정",
+        "threat": "약한 암호화 알고리즘은 비밀번호 복호화 공격에 취약"
+      }
+    },
+    {
+      "code": "U-14",
+      "name": "root 홈, 패스 디렉터리 권한 및 패스 설정",
+      "category": "파일 및 디렉토리 관리",
+      "status": "PASS",
+      "detail": "root PATH 및 홈 디렉토리 설정 양호",
+      "reference": {
+        "purpose": "root 계정의 PATH 환경변수에 현재 디렉터리가 우선하지 않도록 설정하여 악의적인 명령어 실행 방지",
+        "check": "root 계정의 PATH 환경변수에 현재 디렉터리(.)가 포함되어 있는지 점검",
+        "goodCriteria": "PATH 환경변수에 '.'이 맨 앞이나 중간에 포함되지 않은 경우",
+        "badCriteria": "PATH 환경변수에 '.'이 맨 앞이나 중간에 포함된 경우",
+        "remediation": "PATH 환경변수에서 현재 디렉터리를 나타내는 '.'을 PATH의 마지막으로 이동 또는 제거",
+        "threat": "현재 디렉터리에 변조된 명령어를 삽입하여 관리자 명령어 실행 시 악의적인 기능이 실행될 수 있음"
+      }
+    },
+    {
+      "code": "U-15",
+      "name": "파일 및 디렉터리 소유자 설정",
+      "category": "파일 및 디렉토리 관리",
+      "status": "FAIL",
+      "detail": "소유자가 없는 파일/디렉토리 존재 (상위 20개 표시)",
+      "reference": {
+        "purpose": "소유자가 존재하지 않는 파일을 제거하여 임의의 사용자가 파일을 제어하는 것을 방지",
+        "check": "소유자가 존재하지 않는 파일 및 디렉터리의 존재 여부 점검",
+        "goodCriteria": "소유자가 존재하지 않는 파일 및 디렉터리가 존재하지 않는 경우",
+        "badCriteria": "소유자가 존재하지 않는 파일 및 디렉터리가 존재하는 경우",
+        "remediation": "소유자가 존재하지 않는 파일 및 디렉터리를 제거하거나 소유자 변경",
+        "threat": "소유자가 존재하지 않는 파일의 UID와 동일한 값으로 특정 계정의 UID를 변경하면 파일 제어 가능"
+      }
+    },
+    {
+      "code": "U-16",
+      "name": "/etc/passwd 파일 소유자 및 권한 설정",
+      "category": "파일 및 디렉토리 관리",
+      "status": "PASS",
+      "detail": "/etc/passwd: 권한=644(최대 644), 소유자=root",
+      "reference": {
+        "purpose": "passwd 파일을 관리자만 제어할 수 있게 하여 비인가자의 임의적인 파일 변조 방지",
+        "check": "/etc/passwd 파일의 소유자 및 권한이 올바르게 설정되었는지 점검",
+        "goodCriteria": "/etc/passwd 파일의 소유자가 root이고, 권한이 644 이하인 경우",
+        "badCriteria": "/etc/passwd 파일의 소유자가 root가 아니거나, 권한이 644 이하가 아닌 경우",
+        "remediation": "/etc/passwd 파일 소유자를 root로, 권한을 644로 설정",
+        "threat": "비인가자가 /etc/passwd 파일의 사용자 정보를 변조하여 권한 획득 위험"
+      }
+    },
+    {
+      "code": "U-17",
+      "name": "시스템 시작 스크립트 권한 설정",
+      "category": "파일 및 디렉토리 관리",
+      "status": "PASS",
+      "detail": "시스템 시작 스크립트 권한 설정 양호",
+      "reference": {
+        "purpose": "시스템 시작 스크립트를 관리자만 제어하여 비인가자의 악의적인 파일 변조 방지",
+        "check": "시스템 시작 스크립트 파일 권한이 올바르게 설정되었는지 점검",
+        "goodCriteria": "시스템 시작 스크립트 파일의 소유자가 root이고, 일반 사용자의 쓰기 권한이 제거된 경우",
+        "badCriteria": "시스템 시작 스크립트 파일의 소유자가 root가 아니거나, 일반 사용자의 쓰기 권한이 부여된 경우",
+        "remediation": "시스템 시작 스크립트 파일 소유자를 root로 설정하고 일반 사용자 쓰기 권한 제거",
+        "threat": "비인가자가 시스템 시작 스크립트 내용을 변경하여 악의적인 코드 실행 위험"
+      }
+    },
+    {
+      "code": "U-18",
+      "name": "/etc/shadow 파일 소유자 및 권한 설정",
+      "category": "파일 및 디렉토리 관리",
+      "status": "FAIL",
+      "detail": "권한 초과(현재:640, 최대:400) | /etc/shadow: 권한=640(최대 400), 소유자=root",
+      "reference": {
+        "purpose": "shadow 파일을 관리자만 제어할 수 있게 하여 비인가자의 비밀번호 해킹 방지",
+        "check": "/etc/shadow 파일의 소유자 및 권한이 올바르게 설정되었는지 점검",
+        "goodCriteria": "/etc/shadow 파일의 소유자가 root이고, 권한이 400 이하인 경우",
+        "badCriteria": "/etc/shadow 파일의 소유자가 root가 아니거나, 권한이 400 이하가 아닌 경우",
+        "remediation": "/etc/shadow 파일 소유자를 root로, 권한을 400으로 설정",
+        "threat": "/etc/shadow 파일에 저장된 암호화된 해시값을 복호화하여 비밀번호 탈취 위험"
+      }
+    },
+    {
+      "code": "U-19",
+      "name": "/etc/hosts 파일 소유자 및 권한 설정",
+      "category": "파일 및 디렉토리 관리",
+      "status": "PASS",
+      "detail": "/etc/hosts: 권한=644(최대 644), 소유자=root",
+      "reference": {
+        "purpose": "hosts 파일을 관리자만 제어하여 DNS 스푸핑 및 파밍 공격 방지",
+        "check": "/etc/hosts 파일의 소유자 및 권한이 올바르게 설정되었는지 점검",
+        "goodCriteria": "/etc/hosts 파일의 소유자가 root이고, 권한이 644 이하인 경우",
+        "badCriteria": "/etc/hosts 파일의 소유자가 root가 아니거나, 권한이 644 이하가 아닌 경우",
+        "remediation": "/etc/hosts 파일 소유자를 root로, 권한을 644로 설정",
+        "threat": "비인가자가 /etc/hosts 파일에 악의적인 IP주소를 등록하여 파밍 공격 수행 가능"
+      }
+    },
+    {
+      "code": "U-20",
+      "name": "/etc/(x)inetd.conf 파일 소유자 및 권한 설정",
+      "category": "파일 및 디렉토리 관리",
+      "status": "PASS",
+      "detail": "/etc/inetd.conf, /etc/xinetd.conf 파일이 존재하지 않음 (양호)",
+      "reference": {
+        "purpose": "(x)inetd.conf 파일을 관리자만 제어하여 비인가자의 서비스 변조 방지",
+        "check": "/etc/(x)inetd.conf 파일의 소유자 및 권한이 올바르게 설정되었는지 점검",
+        "goodCriteria": "/etc/(x)inetd.conf 파일의 소유자가 root이고, 권한이 600 이하인 경우",
+        "badCriteria": "/etc/(x)inetd.conf 파일의 소유자가 root가 아니거나, 권한이 600 이하가 아닌 경우",
+        "remediation": "/etc/(x)inetd.conf 파일 소유자를 root로, 권한을 600으로 설정",
+        "threat": "일반 사용자가 (x)inetd.conf 파일을 변조하여 악의적인 서비스 등록 및 실행 가능"
+      }
+    },
+    {
+      "code": "U-21",
+      "name": "/etc/(r)syslog.conf 파일 소유자 및 권한 설정",
+      "category": "파일 및 디렉토리 관리",
+      "status": "FAIL",
+      "detail": "권한 초과(현재:644, 최대:640) | /etc/rsyslog.conf: 권한=644(최대 640), 소유자=root",
+      "reference": {
+        "purpose": "syslog.conf 파일을 관리자만 제어하여 로그 기록 정책 변조 방지",
+        "check": "/etc/(r)syslog.conf 파일의 소유자 및 권한이 올바르게 설정되었는지 점검",
+        "goodCriteria": "/etc/(r)syslog.conf 파일의 소유자가 root이고, 권한이 640 이하인 경우",
+        "badCriteria": "/etc/(r)syslog.conf 파일의 소유자가 root가 아니거나, 권한이 640 이하가 아닌 경우",
+        "remediation": "/etc/(r)syslog.conf 파일 소유자를 root로, 권한을 640으로 설정",
+        "threat": "비인가자가 syslog.conf를 변조하여 로그 기록을 하지 않거나 시스템 과부하를 유도 가능"
+      }
+    },
+    {
+      "code": "U-22",
+      "name": "/etc/services 파일 소유자 및 권한 설정",
+      "category": "파일 및 디렉토리 관리",
+      "status": "REVIEW",
+      "detail": "파일이 존재하지 않음: /etc/services",
+      "reference": {
+        "purpose": "services 파일을 관리자만 제어하여 포트 번호 변조로 인한 보안 침해 방지",
+        "check": "/etc/services 파일의 소유자 및 권한이 올바르게 설정되었는지 점검",
+        "goodCriteria": "/etc/services 파일의 소유자가 root이고, 권한이 644 이하인 경우",
+        "badCriteria": "/etc/services 파일의 소유자가 root가 아니거나, 권한이 644 이하가 아닌 경우",
+        "remediation": "/etc/services 파일 소유자를 root로, 권한을 644로 설정",
+        "threat": "비인가자가 서비스 포트 번호를 변경하여 정상 서비스를 제한하거나 악성 서비스 실행 가능"
+      }
+    },
+    {
+      "code": "U-23",
+      "name": "SUID, SGID, Sticky bit 설정 파일 점검",
+      "category": "파일 및 디렉토리 관리",
+      "status": "REVIEW",
+      "detail": "비표준 SUID/SGID 파일 9개 확인 필요",
+      "reference": {
+        "purpose": "불필요한 SUID, SGID, Sticky bit 설정 제거로 악의적 사용자의 권한 상승 방지",
+        "check": "불필요하거나 악의적인 파일에 SUID, SGID, Sticky bit 설정 여부 점검",
+        "goodCriteria": "주요 실행 파일의 권한에 SUID와 SGID에 대한 설정이 부여되지 않은 경우",
+        "badCriteria": "주요 실행 파일의 권한에 SUID와 SGID에 대한 설정이 부여된 경우",
+        "remediation": "불필요한 SUID, SGID 권한을 제거하거나 해당 파일 삭제",
+        "threat": "SUID, SGID가 설정된 파일로 명령어를 실행하여 root 권한 획득 가능"
+      }
+    },
+    {
+      "code": "U-24",
+      "name": "사용자, 시스템 환경변수 파일 소유자 및 권한 설정",
+      "category": "파일 및 디렉토리 관리",
+      "status": "PASS",
+      "detail": "환경변수 파일 권한 설정 양호",
+      "reference": {
+        "purpose": "환경변수 파일의 접근 권한 설정하여 비인가자의 환경변수 조작 방지",
+        "check": "홈 디렉터리 환경변수 파일의 소유자 및 권한이 올바르게 설정되었는지 점검",
+        "goodCriteria": "홈 디렉터리 환경변수 파일 소유자가 root 또는 해당 계정으로 지정되고, root와 소유자만 쓰기 권한 보유",
+        "badCriteria": "홈 디렉터리 환경변수 파일 소유자가 올바르지 않거나, root와 소유자 외에 쓰기 권한 부여된 경우",
+        "remediation": "환경변수 파일의 일반 사용자 쓰기 권한 제거",
+        "threat": "비인가자가 환경변수 파일을 변조하여 정상 사용 중인 사용자의 서비스 제한 가능"
+      }
+    },
+    {
+      "code": "U-25",
+      "name": "world writable 파일 점검",
+      "category": "파일 및 디렉토리 관리",
+      "status": "PASS",
+      "detail": "world writable 파일 없음",
+      "reference": {
+        "purpose": "world writable 파일을 이용한 시스템 접근 및 악의적인 코드 실행 방지",
+        "check": "불필요한 world writable 파일 여부 점검",
+        "goodCriteria": "world writable 파일이 존재하지 않거나, 존재 시 설정 이유를 인지하고 있는 경우",
+        "badCriteria": "world writable 파일이 존재하나 설정 이유를 인지하지 못하고 있는 경우",
+        "remediation": "world writable 파일 존재 여부를 확인하고 불필요한 경우 제거 또는 권한 조정",
+        "threat": "일반 사용자 및 비인가자가 중요 파일을 임의로 수정, 제거할 수 있는 위험"
+      }
+    },
+    {
+      "code": "U-26",
+      "name": "/dev에 존재하지 않는 device 파일 점검",
+      "category": "파일 및 디렉토리 관리",
+      "status": "PASS",
+      "detail": "/dev 디렉토리 내 비정상 파일 없음",
+      "reference": {
+        "purpose": "불필요한 또는 악의적인 /dev 디렉터리 내 파일 제거하여 rootkit 설치 방지",
+        "check": "/dev 디렉터리에 존재하지 않는 device 파일 점검",
+        "goodCriteria": "/dev 디렉터리에 대한 파일 점검 후 존재하지 않는 device 파일을 제거한 경우",
+        "badCriteria": "/dev 디렉터리에 대한 파일 미점검 또는 존재하지 않는 device 파일을 방치한 경우",
+        "remediation": "major, minor number를 가지지 않는 device 파일 제거",
+        "threat": "공격자가 rootkit 설정 파일들을 /dev 디렉터리에 device 파일인 것처럼 위장할 수 있음"
+      }
+    },
+    {
+      "code": "U-27",
+      "name": "/root/.rhosts, hosts.equiv 사용 금지",
+      "category": "파일 및 디렉토리 관리",
+      "status": "PASS",
+      "detail": ".rhosts 및 hosts.equiv 파일 없음",
+      "reference": {
+        "purpose": "r-command를 통한 별도의 인증 없는 관리자 권한 원격 접속 차단",
+        "check": "/root/.rhosts 및 /etc/hosts.equiv 파일의 소유자 및 접근 권한 설정 여부 점검",
+        "goodCriteria": "/root/.rhosts 및 /etc/hosts.equiv 파일이 존재하지 않거나, 파일 권한이 적절히 설정된 경우",
+        "badCriteria": "/root/.rhosts 및 /etc/hosts.equiv 파일이 존재하고 권한이 부적절하게 설정된 경우",
+        "remediation": "/root/.rhosts 및 /etc/hosts.equiv 파일 삭제 또는 권한 설정",
+        "threat": "원격지의 공격자가 관리자 권한으로 명령을 수행하여 중요 정보 유출 및 시스템 장애 유발 가능"
+      }
+    },
+    {
+      "code": "U-28",
+      "name": "비활성 사용자 계정 정리",
+      "category": "파일 및 디렉토리 관리",
+      "status": "REVIEW",
+      "detail": "비활성 계정 존재 (미접속: nobody / 180일 초과:)",
+      "reference": {
+        "purpose": "비활성 사용자 계정을 정리하여 불법적인 계정 악용 방지",
+        "check": "비활성 사용자 계정의 존재 여부 점검",
+        "goodCriteria": "비활성 사용자 계정이 존재하지 않거나, 적절히 관리되는 경우",
+        "badCriteria": "비활성 사용자 계정이 계속 활성화되어 있는 경우",
+        "remediation": "비활성 사용자 계정 삭제 또는 로그인 셸 변경",
+        "threat": "비활성 계정이 악용되어 불법적인 접속 또는 권한 상승에 이용될 가능성"
+      }
+    },
+    {
+      "code": "U-29",
+      "name": "로그인 셸 설정",
+      "category": "파일 및 디렉토리 관리",
+      "status": "PASS",
+      "detail": "모든 계정의 쉘 설정 유효함",
+      "reference": {
+        "purpose": "로그인이 불필요한 계정의 로그인 셸을 /sbin/nologin으로 설정하여 보안 강화",
+        "check": "시스템 계정의 로그인 셸이 적절하게 설정되었는지 점검",
+        "goodCriteria": "시스템 계정의 로그인 셸이 /sbin/nologin으로 설정된 경우",
+        "badCriteria": "시스템 계정의 로그인 셸이 /bin/bash 등 로그인 셸로 설정된 경우",
+        "remediation": "시스템 계정의 로그인 셸을 /sbin/nologin으로 변경",
+        "threat": "불필요한 계정으로 로그인 가능하여 권한 상승 공격에 이용될 수 있음"
+      }
+    },
+    {
+      "code": "U-30",
+      "name": "기본 계정 보안 설정",
+      "category": "파일 및 디렉토리 관리",
+      "status": "PASS",
+      "detail": "기본 계정이 적절히 비활성화됨",
+      "reference": {
+        "purpose": "기본 계정(bin, sys 등)의 비밀번호 설정하여 직접 로그인 방지",
+        "check": "기본 시스템 계정에 비밀번호 설정 여부 점검",
+        "goodCriteria": "기본 시스템 계정에 비밀번호가 설정되거나 로그인이 비활성화된 경우",
+        "badCriteria": "기본 시스템 계정에 비밀번호가 설정되지 않은 경우",
+        "remediation": "기본 시스템 계정에 강력한 비밀번호 설정 또는 로그인 비활성화",
+        "threat": "기본 계정으로 비밀번호 없이 로그인하여 시스템에 직접 접근 가능"
+      }
+    },
+    {
+      "code": "U-31",
+      "name": "홈디렉토리 소유자 및 권한 설정",
+      "category": "파일 및 디렉토리 관리",
+      "status": "PASS",
+      "detail": "홈 디렉토리 소유자 및 권한 설정 양호",
+      "reference": {
+        "purpose": "사용자 홈 디렉토리 내 설정 파일이 비인가자에 의한 변조를 방지",
+        "check": "홈 디렉터리의 소유자 외 타 사용자가 해당 홈 디렉터리를 수정할 수 없도록 제한 설정 여부 점검",
+        "goodCriteria": "홈 디렉터리 소유자가 해당 계정이고, 타 사용자 쓰기 권한이 제거된 경우",
+        "badCriteria": "홈 디렉터리 소유자가 해당 계정이 아니거나, 타 사용자 쓰기 권한이 부여된 경우",
+        "remediation": "사용자별 홈 디렉터리 소유주를 해당 계정으로 변경하고, 타 사용자의 쓰기 권한 제거",
+        "threat": "홈 디렉터리 내 설정 파일 변조 시 정상적인 서비스 이용이 제한될 위험"
+      }
+    },
+    {
+      "code": "U-32",
+      "name": "홈 디렉토리로 지정한 디렉토리의 존재 관리",
+      "category": "파일 및 디렉토리 관리",
+      "status": "FAIL",
+      "detail": "홈 디렉토리가 존재하지 않는 계정: nobody(/nonexistent)",
+      "reference": {
+        "purpose": "사용자 계정과 홈 디렉토리의 일치 여부 점검하여 비인가자 접근 방지",
+        "check": "사용자 계정과 홈 디렉토리의 일치 여부 점검",
+        "goodCriteria": "홈 디렉터리가 존재하지 않는 계정이 발견되지 않는 경우",
+        "badCriteria": "홈 디렉터리가 존재하지 않는 계정이 발견된 경우",
+        "remediation": "홈 디렉터리가 존재하지 않는 계정에 홈 디렉터리 설정 또는 계정 제거",
+        "threat": "홈 디렉터리가 존재하지 않으면 루트 디렉터리(/)로 할당되어 접근 위험 증가"
+      }
+    },
+    {
+      "code": "U-33",
+      "name": "숨겨진 파일 및 디렉토리 검색",
+      "category": "파일 및 디렉토리 관리",
+      "status": "PASS",
+      "detail": "임시 디렉토리 내 의심스러운 숨겨진 파일 없음",
+      "reference": {
+        "purpose": "숨겨진 파일 및 디렉토리 중 의심스러운 내용을 제거하여 보안 위협 방지",
+        "check": "숨겨진 파일 및 디렉토리 내 의심스러운 파일 존재 여부 점검",
+        "goodCriteria": "불필요하거나 의심스러운 숨겨진 파일 및 디렉토리를 제거한 경우",
+        "badCriteria": "불필요하거나 의심스러운 숨겨진 파일 및 디렉토리를 제거하지 않은 경우",
+        "remediation": "ls -al 명령어로 숨겨진 파일 존재 파악 후 불법적이거나 의심스러운 파일을 제거",
+        "threat": "비인가자가 생성한 악성 파일 또는 백도어 등을 탐지하지 못할 위험"
+      }
+    },
+    {
+      "code": "U-34",
+      "name": "Finger 서비스 비활성화",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "finger 서비스 비활성화됨",
+      "reference": {
+        "purpose": "Finger 서비스를 통해 네트워크 외부에서 해당 시스템에 등록된 사용자 정보를 확인할 수 있어 비인가자에게 사용자 정보가 조회되는 것을 방지하기 위함",
+        "check": "Finger 서비스 비활성화 여부 점검",
+        "goodCriteria": "Finger 서비스가 비활성화된 경우",
+        "badCriteria": "Finger 서비스가 활성화된 경우",
+        "remediation": "Finger 서비스 비활성화 설정",
+        "threat": "Finger 서비스가 활성화되어 있을 경우, 비인가자가 Finger 서비스를 사용하여 사용자 정보를 조회한 후 비밀번호 공격을 통해 계정을 탈취할 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-35",
+      "name": "공유 서비스에 대한 익명 접근 제한 설정",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "FTP 익명 접근 제한됨",
+      "reference": {
+        "purpose": "공유 서비스의 익명 접근을 제한하여 중요 정보의 노출을 방지하기 위함",
+        "check": "공유 서비스의 익명 접근 제한 설정 여부 점검",
+        "goodCriteria": "공유 서비스에 대해 익명 접근을 제한한 경우",
+        "badCriteria": "공유 서비스에 대해 익명 접근을 허용한 경우",
+        "remediation": "공유 서비스의 익명 접근 제한 설정",
+        "threat": "공유 서비스의 익명 접근을 허용할 경우, 비인가자의 무단 접근으로 인한 중요 정보 탈취 또는 변조, 악성 코드 유포 등의 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-36",
+      "name": "r 계열 서비스 비활성화",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "r 계열 서비스 비활성화됨",
+      "reference": {
+        "purpose": "r-command 사용을 통한 원격 접속은 NET Backup 또는 클러스터링 등 용도로 사용되기도 하나, 인증 없이 관리자 원격 접속이 가능하여 이에 대한 보안 위협을 방지하기 위함",
+        "check": "r-command 서비스 비활성화 여부 점검",
+        "goodCriteria": "불필요한 r 계열 서비스가 비활성화된 경우",
+        "badCriteria": "불필요한 r 계열 서비스가 활성화된 경우",
+        "remediation": "불필요한 r 계열 서비스 중지 및 비활성화 설정",
+        "threat": "rlogin, rsh, rexec 등의 r-command를 이용하여 원격에서 인증 절차 없이 터미널 접속, 쉘 명령어를 실행이 가능한 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-37",
+      "name": "crontab 설정파일 권한 설정 미흡",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "crontab 파일/디렉토리 권한 설정 양호",
+      "reference": {
+        "purpose": "관리자 외에는 서비스를 사용할 수 없도록 설정하고 있는지 점검하기 위함",
+        "check": "crontab 및 at 서비스 관련 파일의 권한 적절성 여부 점검",
+        "goodCriteria": "crontab 및 at 명령어에 일반 사용자 실행 권한이 제거되어 있으며, cron 및 at 관련 파일 권한이 640 이하인 경우",
+        "badCriteria": "crontab 및 at 명령어에 일반 사용자 실행 권한이 부여되어 있으며, cron 및 at 관련 파일 권한이 640 이상인 경우",
+        "remediation": "crontab 및 at 명령어 파일 권한 750 이하, cron 및 at 관련 파일 소유자 및 파일 권한 640 이하 설정",
+        "threat": "일반 사용자가 crontab 및 at 서비스를 사용할 수 있을 경우, 고의 또는 실수로 불법적인 예약 파일 실행으로 시스템 피해를 일으킬 수 있는 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-38",
+      "name": "DoS 공격에 취약한 서비스 비활성화",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "DoS 취약 서비스 비활성화됨",
+      "reference": {
+        "purpose": "많은 취약점을 가진 echo, discard, daytime, chargen, ntp, snmp 등의 서비스를 중지하여 시스템의 보안성을 높이기 위함",
+        "check": "사용하지 않는 DoS 공격에 취약한 서비스의 실행 여부 점검",
+        "goodCriteria": "DoS 공격에 취약한 서비스가 비활성화된 경우",
+        "badCriteria": "DoS 공격에 취약한 서비스가 활성화된 경우",
+        "remediation": "echo, discard, daytime, chargen, ntp, dns, snmp 등의 서비스 비활성화 설정",
+        "threat": "해당 서비스가 활성화된 경우, 시스템 정보 유출 및 DoS 공격의 대상이 될 수 있는 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-39",
+      "name": "불필요한 NFS 서비스 비활성화",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "NFS 서비스 비활성화됨",
+      "reference": {
+        "purpose": "NFS(Network File System) 서비스는 한 서버의 파일을 많은 서비스 서버들이 공유하여 사용할 때 이용하는 서비스지만 이를 이용한 침해사고 위험성이 높으므로 사용하지 않는 경우 중지하기 위함",
+        "check": "불필요한 NFS 서비스 사용 여부 점검",
+        "goodCriteria": "불필요한 NFS 서비스 관련 데몬이 비활성화된 경우",
+        "badCriteria": "불필요한 NFS 서비스 관련 데몬이 활성화된 경우",
+        "remediation": "NFS 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정",
+        "threat": "NFS 서비스는 서버의 디스크를 클라이언트와 공유하는 서비스로 적정한 보안 설정이 적용되어 있지 않다면 불필요한 파일 공유로 인한 유출 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-40",
+      "name": "NFS 접근 통제",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "/etc/exports 파일 없음 (NFS 미사용)",
+      "reference": {
+        "purpose": "접근 권한이 없는 비인가자의 접근을 통제하기 위함",
+        "check": "NFS(Network File System)의 접근 통제 설정 적용 여부 점검",
+        "goodCriteria": "접근 통제가 설정되어 있으며 NFS 설정 파일 접근 권한이 644 이하인 경우",
+        "badCriteria": "접근 통제가 설정되어 있지 않고 NFS 설정 파일 접근 권한이 644를 초과하는 경우",
+        "remediation": "NFS 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / 불가피하게 사용 시 접근 통제 설정 및 NFS 설정 파일 접근 권한 644 설정",
+        "threat": "접근 통제 설정이 적절하지 않을 경우, 인증 절차 없이 비인가자가 디렉터리나 파일의 접근이 가능하며, 해당 공유 시스템에 원격으로 마운트하여 중요 파일을 변조하거나 유출할 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-41",
+      "name": "불필요한 automountd 제거",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "automountd 서비스 비활성화됨",
+      "reference": {
+        "purpose": "로컬 공격자가 automountd 데몬에 RPC(Remote Procedure Call)를 보낼 수 있는 취약점이 존재하기 때문에 해당 서비스를 중지시키기 위함",
+        "check": "automountd 서비스 데몬의 실행 여부 점검",
+        "goodCriteria": "automountd 서비스가 비활성화된 경우",
+        "badCriteria": "automountd 서비스가 활성화된 경우",
+        "remediation": "automountd 서비스 비활성화 설정",
+        "threat": "파일 시스템의 마운트 옵션을 변경하여 root 권한을 획득할 수 있으며, 로컬 공격자가 automountd 프로세스 권한으로 임의의 명령을 실행할 수 있는 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-42",
+      "name": "불필요한 RPC 서비스 비활성화",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "RPC 서비스 비활성화됨",
+      "reference": {
+        "purpose": "많은 취약점(버퍼 오버플로우, DoS, 원격 실행 등)이 존재하는 RPC 서비스를 비활성화하여 시스템의 보안성을 높이기 위함",
+        "check": "불필요한 RPC 서비스의 실행 여부 점검",
+        "goodCriteria": "불필요한 RPC 서비스가 비활성화된 경우",
+        "badCriteria": "불필요한 RPC 서비스가 활성화된 경우",
+        "remediation": "불필요한 RPC 서비스 중지 및 비활성화 설정",
+        "threat": "RPC 서비스의 취약점을 통해 비인가자가 root 권한 획득 및 각종 공격을 시도할 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-43",
+      "name": "NIS, NIS+ 점검",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "NIS/NIS+ 서비스 비활성화됨",
+      "reference": {
+        "purpose": "안전하지 않은 NIS 서비스를 비활성화하고 안전한 NIS+ 서비스를 활성화하여 시스템의 보안성을 높이기 위함",
+        "check": "안전하지 않은 NIS 서비스의 비활성화, 안전한 NIS+ 서비스의 활성화 여부 점검",
+        "goodCriteria": "NIS 서비스가 비활성화되어 있거나, 불가피하게 사용 시 NIS+ 서비스를 사용하는 경우",
+        "badCriteria": "NIS 서비스가 활성화된 경우",
+        "remediation": "NIS 관련 서비스 비활성화 설정",
+        "threat": "NIS 서비스가 활성화된 경우, 비인가자가 타 시스템의 root 권한까지 탈취할 수 있는 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-44",
+      "name": "tftp, talk 서비스 비활성화",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "tftp/talk 서비스 비활성화됨",
+      "reference": {
+        "purpose": "안전하지 않거나 불필요한 서비스를 제거함으로써 시스템 보안성 및 리소스의 효율적 운용하기 위함",
+        "check": "tftp, talk, ntalk 서비스의 활성화 여부 점검",
+        "goodCriteria": "tftp, talk, ntalk 서비스가 비활성화된 경우",
+        "badCriteria": "tftp, talk, ntalk 서비스가 활성화된 경우",
+        "remediation": "불필요한 tftp, talk, ntalk 서비스 비활성화 설정",
+        "threat": "사용하지 않는 서비스나 취약점이 발표된 서비스 운용 시 공격 시도 가능한 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-45",
+      "name": "메일 서비스 버전 점검",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "메일 서비스 미설치",
+      "reference": {
+        "purpose": "메일 서비스 사용 목적 검토 및 취약점이 없는 버전의 사용 유무 점검으로 최적화된 메일 서비스의 운영하기 위함",
+        "check": "취약한 버전의 메일 서비스 이용 여부 점검",
+        "goodCriteria": "메일 서비스 버전이 최신 버전인 경우",
+        "badCriteria": "메일 서비스 버전이 최신 버전이 아닌 경우",
+        "remediation": "메일 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / 메일 서비스 사용 시 패치 관리 정책을 수립하여 주기적으로 패치 적용 설정",
+        "threat": "취약점이 발견된 메일 버전의 경우 버퍼 오버플로우(Buffer Overflow) 공격에 의한 시스템 권한 획득 및 주요 정보 노출의 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-46",
+      "name": "일반 사용자의 메일 서비스 실행 방지",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "메일 서비스 실행 계정 양호",
+      "reference": {
+        "purpose": "일반 사용자의 q 옵션을 제한하여 메일 서비스 설정 및 메일 큐를 강제적으로 drop 시킬 수 없게 하여 비인가자에 의한 SMTP 서비스 오류 방지하기 위함",
+        "check": "SMTP 서비스 사용 시 일반 사용자의 q 옵션 제한 여부 점검",
+        "goodCriteria": "일반 사용자의 메일 서비스 실행 방지가 설정된 경우",
+        "badCriteria": "일반 사용자의 메일 서비스 실행 방지가 설정되어 있지 않은 경우",
+        "remediation": "메일 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / 메일 서비스 사용 시 메일 서비스의 q 옵션 제한 설정",
+        "threat": "일반 사용자가 q 옵션을 이용해서 메일 큐, 메일 서비스 설정을 보거나 메일 큐를 강제적으로 drop 시킬 수 있어 악의적으로 SMTP 서버의 오류를 발생시킬 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-47",
+      "name": "스팸 메일 릴레이 제한",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "메일 릴레이 제한 설정 양호",
+      "reference": {
+        "purpose": "스팸 메일 서버로의 악용 방지 및 서버 과부하를 방지하기 위함",
+        "check": "SMTP 서버의 릴레이 기능 제한 여부 점검",
+        "goodCriteria": "릴레이 제한이 설정된 경우",
+        "badCriteria": "릴레이 제한이 설정되어 있지 않은 경우",
+        "remediation": "메일 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / 메일 서비스 사용 시 릴레이 방지 설정 또는 릴레이 대상 접근 제어 설정",
+        "threat": "SMTP 서버의 릴레이 기능을 제한하지 않을 경우, 악의적인 사용 목적을 가진 사용자들이 스팸 메일 서버로 사용하거나 DoS 공격의 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-48",
+      "name": "expn, vrfy 명령어 제한",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "EXPN/VRFY 명령어 제한 설정 양호",
+      "reference": {
+        "purpose": "SMTP 서비스의 expn, vrfy 명령을 통한 정보 유출을 방지하기 위함",
+        "check": "SMTP 서비스 사용 시 expn, vrfy 명령어 사용 금지 설정 여부 점검",
+        "goodCriteria": "noexpn, novrfy 옵션이 설정된 경우",
+        "badCriteria": "noexpn, novrfy 옵션이 설정되어 있지 않은 경우",
+        "remediation": "메일 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / 메일 서비스 사용 시 메일 서비스 설정 파일에 noexpn, novrfy 또는 goaway 옵션 추가 설정",
+        "threat": "expn, vrfy 명령어를 통하여 특정 사용자 계정의 존재 여부를 알 수 있고, 사용자의 정보를 외부로 유출할 수 있는 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-49",
+      "name": "DNS 보안 버전 패치",
+      "category": "서비스 관리",
+      "status": "REVIEW",
+      "detail": "DNS 버전을 최신 보안 패치 버전과 비교 필요: 알 수 없음",
+      "reference": {
+        "purpose": "취약점이 발표되지 않은 BIND 버전을 사용하여 시스템 보안성을 높이기 위함",
+        "check": "BIND 최신 버전 사용 유무 및 주기적 보안 패치 여부 점검",
+        "goodCriteria": "주기적으로 패치를 관리하는 경우",
+        "badCriteria": "주기적으로 패치를 관리하고 있지 않은 경우",
+        "remediation": "DNS 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / DNS 서비스 사용 시 패치 관리 정책 수립 및 주기적으로 패치 적용 설정",
+        "threat": "취약점이 내포된 BIND 버전을 사용할 경우, DoS 공격, 버퍼 오버플로우(Buffer Overflow) 및 DNS 서버 원격 침입 등의 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-50",
+      "name": "DNS Zone Transfer 설정",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "DNS 서비스 미설치",
+      "reference": {
+        "purpose": "DNS Zone Transfer 설정을 통해 비인가자에 대한 무단 접근을 방지하기 위함",
+        "check": "Secondary Name Server로만 Zone 정보 전송 제한 여부 점검",
+        "goodCriteria": "Zone Transfer를 허가된 사용자에게만 허용한 경우",
+        "badCriteria": "Zone Transfer를 모든 사용자에게 허용한 경우",
+        "remediation": "DNS 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / DNS 서비스 사용 시 DNS Zone Transfer를 허가된 사용자에게만 전송 허용하도록 설정",
+        "threat": "Zone Transfer를 모든 사용자에게 허용할 경우, 비인가자에게 호스트 정보, 시스템 정보 등 중요 정보가 유출될 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-51",
+      "name": "DNS 서비스의 취약한 동적 업데이트 설정 금지",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "DNS 서비스 미설치",
+      "reference": {
+        "purpose": "DNS 서비스의 동적 업데이트를 비활성화함으로써 신뢰할 수 없는 원본으로부터 업데이트를 받아들이는 위험을 차단하기 위함",
+        "check": "DNS 서비스의 취약한 동적 업데이트 설정 여부 점검",
+        "goodCriteria": "DNS 서비스의 동적 업데이트 기능이 비활성화되었거나, 활성화 시 적절한 접근통제를 수행하고 있는 경우",
+        "badCriteria": "DNS 서비스의 동적 업데이트 기능이 활성화 중이며 적절한 접근통제를 수행하고 있지 않은 경우",
+        "remediation": "DNS 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / DNS 서비스 사용 시 일반적으로 동적 업데이트 기능이 필요 없으나 확인 필요함",
+        "threat": "DNS 서버에서 동적 업데이트를 사용할 경우, 악의적인 사용자에 의해 신뢰할 수 없는 데이터가 받아들여질 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-52",
+      "name": "Telnet 서비스 비활성화",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "Telnet 서비스 비활성화됨",
+      "reference": {
+        "purpose": "취약한 Telnet 프로토콜을 비활성화함으로써 계정 및 중요 정보 유출 방지하기 위함",
+        "check": "원격 접속 시 Telnet 프로토콜 사용 여부 점검",
+        "goodCriteria": "원격 접속 시 Telnet 프로토콜을 비활성화하고 있는 경우",
+        "badCriteria": "원격 접속 시 Telnet 프로토콜을 사용하는 경우",
+        "remediation": "Telnet, FTP 등 안전하지 않은 서비스 사용을 중지하고 SSH 설치 및 사용하도록 설정",
+        "threat": "원격 접속 시 Telnet 프로토콜을 사용할 경우, 데이터가 평문으로 전송되어 비인가자가 스니핑을 통해 계정 및 중요 정보를 외부로 유출할 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-53",
+      "name": "FTP 서비스 정보 노출 제한",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "FTP 서비스 정보 노출 제한 설정 양호",
+      "reference": {
+        "purpose": "FTP 서비스 접속 배너를 통한 불필요한 정보 노출을 방지하기 위함",
+        "check": "FTP 서비스 정보 노출 여부 점검",
+        "goodCriteria": "FTP 접속 배너에 노출되는 정보가 없는 경우",
+        "badCriteria": "FTP 접속 배너에 노출되는 정보가 있는 경우",
+        "remediation": "FTP 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / FTP 서비스 사용 시 FTP 설정 파일을 통해 접속 배너 설정",
+        "threat": "서비스 접속 배너가 차단되지 않을 경우, 비인가자가 FTP 접속 시도 시 노출되는 접속 배너 정보를 수집하여 악의적인 공격에 이용할 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-54",
+      "name": "암호화되지 않는 FTP 서비스 비활성화",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "FTP 서비스 비활성화됨",
+      "reference": {
+        "purpose": "암호화되지 않은 FTP 서비스를 비활성화함으로써 계정 및 중요 정보 유출 방지하기 위함",
+        "check": "암호화되지 않은 FTP 서비스 비활성화 여부 점검",
+        "goodCriteria": "암호화되지 않은 FTP 서비스가 비활성화된 경우",
+        "badCriteria": "암호화되지 않은 FTP 서비스가 활성화된 경우",
+        "remediation": "암호화되지 않은 FTP 서비스 중지 및 비활성화 설정",
+        "threat": "암호화되지 않은 FTP 서비스를 사용할 경우, 데이터가 평문으로 전송되어 비인가자가 스니핑을 통해 계정 및 중요 정보를 외부로 유출할 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-55",
+      "name": "FTP 계정 shell 제한",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "FTP 계정 쉘 제한 설정 양호",
+      "reference": {
+        "purpose": "FTP 계정의 쉘을 통한 시스템 접근을 차단하기 위함",
+        "check": "FTP 기본 계정에 쉘 설정 여부 점검",
+        "goodCriteria": "FTP 계정에 /bin/false(/sbin/nologin) 쉘이 부여된 경우",
+        "badCriteria": "FTP 계정에 /bin/false(/sbin/nologin) 쉘이 부여되어 있지 않은 경우",
+        "remediation": "FTP 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / FTP 서비스 사용 시 FTP 계정에 /bin/false 쉘 부여 설정",
+        "threat": "FTP 기본 계정에 쉘이 부여될 경우, 비인가자가 해당 기본 계정으로 시스템에 접근할 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-56",
+      "name": "FTP 서비스 접근 제어 설정",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "FTP 서비스 미설치",
+      "reference": {
+        "purpose": "접근 권한이 없는 비인가자의 접근을 통제하기 위함",
+        "check": "FTP 서비스에 비인가자의 접근 가능 여부 점검",
+        "goodCriteria": "특정 IP주소 또는 호스트에서만 FTP 서버에 접속할 수 있도록 접근 제어 설정을 적용한 경우",
+        "badCriteria": "FTP 서버에 접근 제어 설정을 적용하지 않은 경우",
+        "remediation": "FTP 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / FTP 서비스 사용 시 접근 제어 설정",
+        "threat": "FTP 서비스의 접근제한 설정이 적절하지 않을 경우, 인증 절차 없이 비인가자가 디렉터리나 파일에 접근할 수 있어 중요 파일 변조 및 유출을 시도할 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-57",
+      "name": "Ftpusers 파일 설정",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "FTP 서비스 미설치",
+      "reference": {
+        "purpose": "root 계정의 FTP 직접 접속을 제한하여 root 비밀번호 정보 노출을 방지하기 위함",
+        "check": "FTP 서비스에 root 계정 접근 제한 설정 여부 점검",
+        "goodCriteria": "root 계정 접속을 차단한 경우",
+        "badCriteria": "root 계정 접속을 허용한 경우",
+        "remediation": "FTP 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / FTP 서비스 사용 시 root 계정으로 직접 접속할 수 없도록 설정",
+        "threat": "FTP 서비스에 root 계정으로 접근할 경우, 데이터가 평문으로 전송되어 비인가자가 스니핑을 통해 관리자 계정 및 중요 정보를 외부로 유출할 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-58",
+      "name": "불필요한 SNMP 서비스 구동 점검",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "SNMP 서비스 비활성화됨",
+      "reference": {
+        "purpose": "불필요한 SNMP 서비스를 비활성화하여 필요 이상의 정보가 노출되는 것을 방지하기 위함",
+        "check": "SNMP 서비스 활성화 여부 점검",
+        "goodCriteria": "SNMP 서비스를 사용하지 않는 경우",
+        "badCriteria": "SNMP 서비스를 사용하는 경우",
+        "remediation": "SNMP 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정",
+        "threat": "SNMP 서비스가 활성화되어 있을 경우, 비인가자가 시스템의 중요 정보를 유출하거나 불법적으로 수정할 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-59",
+      "name": "안전한 SNMP 버전 사용",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "SNMP 설정 파일 없음 (서비스 미사용)",
+      "reference": {
+        "purpose": "안전한 SNMP 버전 사용으로 전송되는 데이터를 보호하기 위함",
+        "check": "안전한 SNMP 버전 사용 여부 점검",
+        "goodCriteria": "SNMP 서비스를 v3 이상으로 사용하는 경우",
+        "badCriteria": "SNMP 서비스를 v2 이하로 사용하는 경우",
+        "remediation": "SNMP 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / SNMP 서비스 사용 시 SNMP 버전을 v3 이상으로 적용하도록 설정",
+        "threat": "SNMP 버전이 기준보다 낮을 경우, 응답 패킷이 평문으로 전송되어 스니핑 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-60",
+      "name": "SNMP Community String 복잡성 설정",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "SNMP 설정 파일 없음 (서비스 미사용)",
+      "reference": {
+        "purpose": "SNMP 서비스의 Community String의 복잡성 설정을 통해 비인가자의 비밀번호 추측 공격에 대비하기 위함",
+        "check": "SNMP Community String 복잡성 설정 여부 점검",
+        "goodCriteria": "SNMP Community String 기본값인 \"public\", \"private\"이 아닌 영문자, 숫자 포함 10자리 이상 또는 영문자, 숫자, 특수문자 포함 8자리 이상인 경우",
+        "badCriteria": "아래의 내용 중 하나라도 해당되는 경우 / 1. SNMP Community String 기본값인 \"public\", \"private\"일 경우 / 2. 영문자, 숫자 포함 10자리 미만인 경우 / 3. 영문자, 숫자, 특수문자 포함 8자리 미만인 경우",
+        "remediation": "SNMP 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / SNMP 서비스 사용 시 SNMP Community String 기본값인 \"public\", \"private\"이 아닌 영문자, 숫자 포함 10자리 이상 또는 영문자, 숫자, 특수문자 포함 8자리 이상으로 설정",
+        "threat": "Community String에 복잡성 설정이 되어 있지 않을 경우, 비인가자가 비밀번호 추측 공격을 통해 계정 탈취 시 환경설정 파일 열람 및 수정, 각종 정보수집, 관리자 권한 획득 등 다양한 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-61",
+      "name": "SNMP Access Control 설정",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "SNMP 설정 파일 없음 (서비스 미사용)",
+      "reference": {
+        "purpose": "SNMP 접근 제어 설정을 통해 비인가자의 접근을 차단하기 위함",
+        "check": "SNMP 접근 제어 설정 여부 점검",
+        "goodCriteria": "SNMP 서비스에 접근 제어 설정이 되어 있는 경우",
+        "badCriteria": "SNMP 서비스에 접근 제어 설정이 되어 있지 않은 경우",
+        "remediation": "SNMP 서비스를 사용하지 않는 경우 서비스 중지 및 비활성화 설정 / SNMP 서비스 사용 시 SNMP 접근 제어 설정하도록 설정",
+        "threat": "SNMP 서비스에 접근 제어가 설정되어 있지 않을 경우, 비인가자의 접근, 네트워크 정보 유출, 시스템 및 네트워크 설정 변경, DoS 공격 등의 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-62",
+      "name": "로그인 시 경고 메시지 설정",
+      "category": "서비스 관리",
+      "status": "FAIL",
+      "detail": "로그인 경고 메시지 설정 미흡 또는 버전 정보 노출",
+      "reference": {
+        "purpose": "비인가자들에게 서버에 대한 불필요한 정보를 제공하지 않고, 서버 접속 시 관계자만 접속해야 한다는 경각심을 심어 주기 위함",
+        "check": "서버 및 서비스에 로그온 시 불필요한 정보 차단 설정 및 불법적인 사용에 대한 경고 메시지 출력 여부 점검",
+        "goodCriteria": "서버 및 Telnet, FTP, SMTP, DNS 서비스에 로그온 시 경고 메시지가 설정된 경우",
+        "badCriteria": "서버 및 Telnet, FTP, SMTP, DNS 서비스에 로그온 시 경고 메시지가 설정되어 있지 않은 경우",
+        "remediation": "Telnet, FTP, SMTP, DNS 서비스를 사용하는 경우 설정 파일을 통해 로그온 시 경고 메시지 설정",
+        "threat": "로그온 시 경고 메시지가 설정되어 있지 않을 경우, 기본 설정값엔 서버 OS 버전 및 서비스 버전이 비인가자에게 노출되어 해당 정보를 통해 서비스의 취약점을 이용하여 공격을 시도할 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-63",
+      "name": "sudo 명령어 접근 관리",
+      "category": "서비스 관리",
+      "status": "PASS",
+      "detail": "sudo 설정 양호",
+      "reference": {
+        "purpose": "비인가자가 관리자 권한을 남용하여 시스템 손상, 악성 코드 실행, 민감한 데이터 유출 등의 보안 위협을 방지하기 위함",
+        "check": "/etc/sudoers 파일 권한 적절성 여부 점검",
+        "goodCriteria": "/etc/sudoers 파일 소유자가 root이고, 파일 권한이 640인 경우",
+        "badCriteria": "/etc/sudoers 파일 소유자가 root가 아니거나, 파일 권한이 640을 초과하는 경우",
+        "remediation": "/etc/sudoers 파일 소유자 및 권한 변경 설정",
+        "threat": "sudo 명령어 접근을 제한하지 않을 경우, 비인가자가 관리자 권한으로 허가되지 않은 명령어를 사용하여 루트 권한 오용, 악성 코드 실행, 데이터 유출 등의 시도를 할 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-64",
+      "name": "주기적 보안 패치 및 벤더 권고사항 적용",
+      "category": "서비스 관리",
+      "status": "FAIL",
+      "detail": "적용되지 않은 보안 업데이트가 있음",
+      "reference": {
+        "purpose": "주기적인 패치 적용을 통해 시스템 안정성 및 보안성을 확보하기 위함",
+        "check": "시스템에서 최신 패치가 적용 여부 점검",
+        "goodCriteria": "패치 적용 정책을 수립하여 주기적으로 패치 관리를 하고 있으며, 패치 관련 내용을 확인하고 적용하였을 경우",
+        "badCriteria": "패치 적용 정책을 수립하지 않고 주기적으로 패치 관리를 하지 않거나, 패치 관련 내용을 확인하지 않고 적용하지 않고 있는 경우",
+        "remediation": "OS 관리자, 서비스 개발자가 패치 적용에 따른 서비스 영향 정도를 파악하여 OS 관리자 및 벤더에서 적용하도록 설정",
+        "threat": "최신 보안패치가 적용되지 않을 경우, 이미 알려진 취약점을 통하여 공격자에 의해 시스템 침해사고 발생할 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-65",
+      "name": "NTP 및 시각 동기화 설정",
+      "category": "서비스 관리",
+      "status": "FAIL",
+      "detail": "NTP 시각 동기화 설정 없음",
+      "reference": {
+        "purpose": "인증 및 감사 목적을 위한 시간 동기화는 필수적이며, 안전하고 승인된 NTP 서비스와 동기화하기 위함",
+        "check": "NTP 및 시각 동기화 설정 여부 점검",
+        "goodCriteria": "NTP 및 시각 동기화 설정이 기준에 따라 적용된 경우",
+        "badCriteria": "NTP 및 시각 동기화 설정이 기준에 따라 적용되어 있지 않은 경우",
+        "remediation": "NTP 설정 및 동기화 주기 설정",
+        "threat": "시스템 간 시간 동기화 미흡으로 보안 사고 및 장애 발생 시 로그에 대한 신뢰도 확보 미흡 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-66",
+      "name": "정책에 따른 시스템 로깅 설정",
+      "category": "서비스 관리",
+      "status": "FAIL",
+      "detail": "시스템 로깅 설정 미흡",
+      "reference": {
+        "purpose": "보안 사고 발생 시 원인 파악 및 각종 침해 사실 확인을 하기 위함",
+        "check": "내부 정책에 따른 시스템 로깅 설정 여부 점검",
+        "goodCriteria": "로그 기록 정책이 보안 정책에 따라 설정되어 수립되어 있으며, 로그를 남기고 있는 경우",
+        "badCriteria": "로그 기록 정책 미수립 또는 정책에 따라 설정되어 있지 않거나, 로그를 남기고 있지 않은 경우",
+        "remediation": "로그 기록 정책을 수립하고, 정책에 따라 (r)syslog.conf 파일을 설정",
+        "threat": "로깅 설정이 되어 있지 않을 경우, 원인 규명이 어려우며 법적 대응을 위한 충분한 증거로 사용할 수 없는 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-67",
+      "name": "로그 디렉터리 소유자 및 권한 설정",
+      "category": "서비스 관리",
+      "status": "FAIL",
+      "detail": "로그 디렉토리/파일 권한 설정 미흡",
+      "reference": {
+        "purpose": "로그 파일을 관리자만 제어할 수 있게 하여 비인가자의 임의적인 파일 훼손 및 변조를 방지하기 위함",
+        "check": "로그에 대한 접근 통제 및 관리 여부 점검",
+        "goodCriteria": "디렉터리 내 로그 파일의 소유자가 root이고, 권한이 644 이하인 경우",
+        "badCriteria": "디렉터리 내 로그 파일의 소유자가 root가 아니거나, 권한이 644를 초과하는 경우",
+        "remediation": "디렉터리 내 로그 파일 소유자 및 권한 변경 설정",
+        "threat": "로그에 대한 접근 통제가 미흡할 경우, 비인가자가 로그에서 정보를 획득하거나 로그 자체를 변조할 수 있는 위험이 존재함"
+      }
+    },
+    {
+      "code": "U-68",
+      "name": "NTP 서비스 보안 설정",
+      "category": "로그 및 감시",
+      "status": "PASS",
+      "detail": "NTP 서비스 보안 설정 양호",
+      "reference": {
+        "purpose": "",
+        "check": "",
+        "goodCriteria": "",
+        "badCriteria": "",
+        "remediation": "",
+        "threat": ""
+      }
+    },
+    {
+      "code": "U-69",
+      "name": "로그온 배너 설정",
+      "category": "로그 및 감시",
+      "status": "FAIL",
+      "detail": "로그온 배너 설정 미흡",
+      "reference": {
+        "purpose": "",
+        "check": "",
+        "goodCriteria": "",
+        "badCriteria": "",
+        "remediation": "",
+        "threat": ""
+      }
+    },
+    {
+      "code": "U-70",
+      "name": "원격 접속 보안 설정",
+      "category": "로그 및 감시",
+      "status": "FAIL",
+      "detail": "원격 접속(SSH) 보안 설정 미흡",
+      "reference": {
+        "purpose": "",
+        "check": "",
+        "goodCriteria": "",
+        "badCriteria": "",
+        "remediation": "",
+        "threat": ""
+      }
+    },
+    {
+      "code": "U-71",
+      "name": "불필요한 계정 및 그룹 관리",
+      "category": "로그 및 감시",
+      "status": "PASS",
+      "detail": "계정 및 그룹 관리 설정 양호",
+      "reference": {
+        "purpose": "",
+        "check": "",
+        "goodCriteria": "",
+        "badCriteria": "",
+        "remediation": "",
+        "threat": ""
+      }
+    },
+    {
+      "code": "U-72",
+      "name": "보안 패치 적용",
+      "category": "로그 및 감시",
+      "status": "FAIL",
+      "detail": "적용되지 않은 보안 패치가 있음",
+      "reference": {
+        "purpose": "",
+        "check": "",
+        "goodCriteria": "",
+        "badCriteria": "",
+        "remediation": "",
+        "threat": ""
+      }
+    }
+  ]
+}

@@ -1,0 +1,677 @@
+{
+  "metadata": {
+    "executionTime": "2026-06-19 07:42:45",
+    "hostname": "demo-server",
+    "os": "CIS-Linux",
+    "distro": "Ubuntu 22.04.5 LTS",
+    "architecture": "aarch64"
+  },
+  "summary": {
+    "total": 44,
+    "pass": 19,
+    "fail": 18,
+    "review": 7
+  },
+  "checks": [
+    {
+      "code": "CL-01",
+      "name": "불필요한 파일시스템 커널 모듈 비활성화",
+      "category": "초기 설정",
+      "status": "REVIEW",
+      "detail": "modprobe 명령을 사용할 수 없어 모듈 점검 불가",
+      "reference": {
+        "purpose": "공격에 악용될 수 있는 불필요한 파일시스템 모듈을 차단하여 공격 표면 축소",
+        "check": "cramfs, freevxfs, jffs2, hfs, hfsplus, udf 모듈 로드 가능 여부 확인",
+        "goodCriteria": "불필요한 파일시스템 모듈이 모두 비활성화됨",
+        "badCriteria": "일부 불필요한 파일시스템 모듈이 로드 가능한 상태",
+        "remediation": "/etc/modprobe.d 에 install <module> /bin/false 및 blacklist 추가",
+        "threat": "취약한 파일시스템 드라이버를 통한 악성 미디어 자동 마운트 공격"
+      }
+    },
+    {
+      "code": "CL-02",
+      "name": "/tmp 별도 파티션 분리",
+      "category": "초기 설정",
+      "status": "FAIL",
+      "detail": "/tmp가 별도 파티션으로 분리되어 있지 않음",
+      "reference": {
+        "purpose": "/tmp를 별도 파티션으로 분리하여 마운트 옵션 적용 및 디스크 고갈 격리",
+        "check": "findmnt /tmp 또는 mount로 /tmp가 별도 마운트인지 확인",
+        "goodCriteria": "/tmp가 별도 파티션 또는 tmpfs로 마운트됨",
+        "badCriteria": "/tmp가 루트 파티션에 포함됨",
+        "remediation": "/tmp를 별도 파티션 또는 tmpfs로 분리 마운트 설정",
+        "threat": "/tmp 영역 디스크 고갈로 인한 시스템 전체 DoS"
+      }
+    },
+    {
+      "code": "CL-03",
+      "name": "/tmp nodev/nosuid/noexec 마운트 옵션",
+      "category": "초기 설정",
+      "status": "REVIEW",
+      "detail": "/tmp가 별도 마운트가 아니어서 옵션 점검 불가",
+      "reference": {
+        "purpose": "/tmp에서 장치 파일·setuid·실행을 제한하여 권한 상승 차단",
+        "check": "/tmp 마운트 옵션에 nodev, nosuid, noexec 포함 여부 확인",
+        "goodCriteria": "/tmp에 nodev, nosuid, noexec 옵션이 적용됨",
+        "badCriteria": "/tmp 마운트 옵션 일부 또는 전부 미적용",
+        "remediation": "/etc/fstab의 /tmp 항목에 nodev,nosuid,noexec 추가",
+        "threat": "/tmp에 업로드된 악성 실행 파일·setuid 바이너리를 통한 권한 상승"
+      }
+    },
+    {
+      "code": "CL-04",
+      "name": "/var/log 별도 파티션 분리",
+      "category": "초기 설정",
+      "status": "FAIL",
+      "detail": "/var/log가 별도 파티션으로 분리되어 있지 않음",
+      "reference": {
+        "purpose": "/var/log를 별도 파티션으로 분리하여 로그 폭주 시 시스템 보호",
+        "check": "findmnt /var/log로 별도 마운트 여부 확인",
+        "goodCriteria": "/var/log가 별도 파티션에 마운트됨",
+        "badCriteria": "/var/log가 루트 파티션에 포함됨",
+        "remediation": "/var/log를 별도 파티션으로 분리 마운트 설정",
+        "threat": "로그 급증으로 인한 루트 파티션 고갈 및 서비스 중단"
+      }
+    },
+    {
+      "code": "CL-05",
+      "name": "/home nodev 마운트 옵션",
+      "category": "초기 설정",
+      "status": "REVIEW",
+      "detail": "/home가 별도 마운트가 아니어서 옵션 점검 불가",
+      "reference": {
+        "purpose": "/home에서 장치 파일 생성을 차단하여 우회 접근 방지",
+        "check": "/home 마운트 옵션에 nodev 포함 여부 확인",
+        "goodCriteria": "/home에 nodev 옵션이 적용됨",
+        "badCriteria": "/home에 nodev 옵션 미적용 또는 별도 파티션 아님",
+        "remediation": "/etc/fstab의 /home 항목에 nodev 추가",
+        "threat": "사용자 홈 디렉토리에 생성된 장치 파일을 통한 접근 통제 우회"
+      }
+    },
+    {
+      "code": "CL-06",
+      "name": "부트로더 설정 파일 권한 제한",
+      "category": "초기 설정",
+      "status": "REVIEW",
+      "detail": "부트로더 설정 파일을 찾을 수 없음 (배포판별 경로 상이)",
+      "reference": {
+        "purpose": "부트로더 설정 파일을 보호하여 부팅 파라미터 변조 방지",
+        "check": "grub.cfg 등 부트로더 설정 파일 권한이 600 이하인지 확인",
+        "goodCriteria": "부트로더 설정 파일 권한이 600 이하(root 전용)",
+        "badCriteria": "부트로더 설정 파일이 일반 사용자에게 노출됨",
+        "remediation": "chmod 600 /boot/grub/grub.cfg (배포판별 경로 상이)",
+        "threat": "부트 파라미터 노출·변조를 통한 single-user 모드 진입 등 권한 상승"
+      }
+    },
+    {
+      "code": "CL-07",
+      "name": "ASLR(주소공간 배치 무작위화) 활성화",
+      "category": "초기 설정",
+      "status": "PASS",
+      "detail": "ASLR 완전 활성화 (randomize_va_space=2)",
+      "reference": {
+        "purpose": "ASLR을 활성화하여 메모리 손상 공격(버퍼 오버플로우 등) 난이도 상승",
+        "check": "kernel.randomize_va_space 값이 2인지 확인",
+        "goodCriteria": "kernel.randomize_va_space = 2 (완전 무작위화)",
+        "badCriteria": "ASLR 비활성화(0) 또는 부분 적용(1)",
+        "remediation": "sysctl -w kernel.randomize_va_space=2 및 sysctl.conf 영구 설정",
+        "threat": "예측 가능한 메모리 주소를 악용한 코드 실행 공격 성공률 증가"
+      }
+    },
+    {
+      "code": "CL-08",
+      "name": "core dump 생성 제한",
+      "category": "초기 설정",
+      "status": "FAIL",
+      "detail": "core dump 제한 미흡 (suid_dumpable=2, hard core 미설정)",
+      "reference": {
+        "purpose": "core dump 생성을 제한하여 메모리 내 민감정보 유출 방지",
+        "check": "hard core 0 설정 및 fs.suid_dumpable=0 확인",
+        "goodCriteria": "core dump가 제한되고 suid 프로그램 dump 비활성화됨",
+        "badCriteria": "core dump 제한 미설정",
+        "remediation": "limits.conf에 * hard core 0, sysctl fs.suid_dumpable=0 설정",
+        "threat": "core dump 파일에 포함된 패스워드·키 등 민감정보 유출"
+      }
+    },
+    {
+      "code": "CL-09",
+      "name": "AppArmor/SELinux 활성화",
+      "category": "초기 설정",
+      "status": "FAIL",
+      "detail": "AppArmor/SELinux가 활성화되어 있지 않음",
+      "reference": {
+        "purpose": "MAC(강제적 접근통제)를 활성화하여 프로세스 권한을 강제 제한",
+        "check": "AppArmor(aa-status) 또는 SELinux(getenforce) 활성화 확인",
+        "goodCriteria": "AppArmor 또는 SELinux가 enforce 모드로 동작 중",
+        "badCriteria": "MAC 미설치 또는 비활성/permissive 상태",
+        "remediation": "AppArmor 또는 SELinux 설치 후 enforce 모드 적용",
+        "threat": "프로세스 침해 시 MAC 부재로 인한 횡적 권한 확산"
+      }
+    },
+    {
+      "code": "CL-10",
+      "name": "로그인 경고 배너 설정",
+      "category": "초기 설정",
+      "status": "PASS",
+      "detail": "로그인 경고 배너 설정됨 (/etc/issue /etc/issue.net )",
+      "reference": {
+        "purpose": "비인가 접근에 대한 법적 경고 배너를 표시하여 책임 소재 명확화",
+        "check": "/etc/issue, /etc/issue.net, /etc/motd 배너 설정 확인",
+        "goodCriteria": "로그인 경고 배너가 설정됨",
+        "badCriteria": "경고 배너 미설정 또는 OS 정보 노출",
+        "remediation": "/etc/issue 등에 경고 문구 작성, OS 버전 정보 제거",
+        "threat": "OS 버전 노출에 따른 표적 공격 및 법적 대응 근거 미비"
+      }
+    },
+    {
+      "code": "CL-11",
+      "name": "inetd/xinetd 미설치",
+      "category": "서비스",
+      "status": "PASS",
+      "detail": "inetd/xinetd가 설치되어 있지 않음",
+      "reference": {
+        "purpose": "레거시 슈퍼 데몬(inetd/xinetd) 제거로 불필요한 서비스 노출 차단",
+        "check": "xinetd, openbsd-inetd 패키지 설치 여부 확인",
+        "goodCriteria": "inetd/xinetd가 설치되어 있지 않음",
+        "badCriteria": "inetd 또는 xinetd가 설치됨",
+        "remediation": "apt purge xinetd / yum remove xinetd 로 제거",
+        "threat": "inetd 기반 레거시 서비스를 통한 취약 프로토콜 노출"
+      }
+    },
+    {
+      "code": "CL-12",
+      "name": "시간 동기화 서비스 설정",
+      "category": "서비스",
+      "status": "PASS",
+      "detail": "시간 동기화 서비스 동작 중: systemd-timesyncd ",
+      "reference": {
+        "purpose": "정확한 시각 동기화로 로그 신뢰성 및 인증 프로토콜 정상 동작 보장",
+        "check": "chrony, ntp, systemd-timesyncd 중 하나가 활성화되었는지 확인",
+        "goodCriteria": "시간 동기화 서비스가 동작 중",
+        "badCriteria": "시간 동기화 서비스 미설정",
+        "remediation": "chrony 또는 systemd-timesyncd 설치 및 활성화",
+        "threat": "시각 불일치로 인한 로그 위변조 추적 불가 및 인증서 검증 실패"
+      }
+    },
+    {
+      "code": "CL-13",
+      "name": "불필요한 서버 서비스 비활성화",
+      "category": "서비스",
+      "status": "PASS",
+      "detail": "불필요한 서버 서비스가 비활성화됨",
+      "reference": {
+        "purpose": "불필요한 서버 서비스 비활성화로 공격 표면 최소화",
+        "check": "avahi, cups, dhcpd, slapd, nfs, named, vsftpd, smbd, snmpd 등 활성 여부 확인",
+        "goodCriteria": "불필요한 서버 서비스가 비활성화됨",
+        "badCriteria": "불필요한 서버 서비스가 실행 중",
+        "remediation": "systemctl disable --now <service> 로 미사용 서비스 중지",
+        "threat": "불필요 서비스의 취약점을 통한 침투 경로 제공"
+      }
+    },
+    {
+      "code": "CL-14",
+      "name": "메일 전송 에이전트 로컬 전용 설정",
+      "category": "서비스",
+      "status": "REVIEW",
+      "detail": "ss/netstat 미설치로 MTA 바인딩 점검 불가",
+      "reference": {
+        "purpose": "MTA를 로컬 전용으로 제한하여 외부 메일 릴레이 악용 방지",
+        "check": "postfix/exim 등이 127.0.0.1/localhost에만 바인딩되었는지 확인",
+        "goodCriteria": "MTA가 로컬호스트에만 바인딩됨",
+        "badCriteria": "MTA가 외부 인터페이스(0.0.0.0)에 바인딩됨",
+        "remediation": "inet_interfaces = loopback-only 설정 (postfix 기준)",
+        "threat": "개방된 메일 서버의 스팸 릴레이 악용 및 정보 유출"
+      }
+    },
+    {
+      "code": "CL-15",
+      "name": "안전하지 않은 클라이언트 미설치",
+      "category": "서비스",
+      "status": "PASS",
+      "detail": "안전하지 않은 클라이언트가 설치되어 있지 않음",
+      "reference": {
+        "purpose": "평문 전송 클라이언트 제거로 자격증명 스니핑 위험 차단",
+        "check": "rsh-client, talk, telnet, ldap-utils 등 설치 여부 확인",
+        "goodCriteria": "안전하지 않은 클라이언트가 설치되어 있지 않음",
+        "badCriteria": "평문 전송 클라이언트가 설치됨",
+        "remediation": "apt purge rsh-client talk telnet 로 제거",
+        "threat": "평문 프로토콜 사용 시 네트워크 도청을 통한 자격증명 탈취"
+      }
+    },
+    {
+      "code": "CL-16",
+      "name": "X Window System 미설치",
+      "category": "서비스",
+      "status": "PASS",
+      "detail": "X Window System이 설치되어 있지 않음",
+      "reference": {
+        "purpose": "서버에서 불필요한 GUI(X Window) 제거로 공격 표면 축소",
+        "check": "xserver-xorg 등 X Window 패키지 설치 여부 확인",
+        "goodCriteria": "X Window System이 설치되어 있지 않음",
+        "badCriteria": "서버에 X Window System이 설치됨",
+        "remediation": "서버 용도라면 X Window 관련 패키지 제거",
+        "threat": "GUI 스택의 다수 라이브러리 취약점을 통한 공격 표면 증가"
+      }
+    },
+    {
+      "code": "CL-17",
+      "name": "rsync 서비스 비활성화",
+      "category": "서비스",
+      "status": "PASS",
+      "detail": "rsync 데몬이 비활성화됨",
+      "reference": {
+        "purpose": "평문 rsync 데몬 서비스 비활성화로 무인증 파일 접근 방지",
+        "check": "rsync 데몬 서비스 활성화 여부 확인",
+        "goodCriteria": "rsync 데몬 서비스가 비활성화됨",
+        "badCriteria": "rsync 데몬이 활성화됨",
+        "remediation": "systemctl disable --now rsync (필요 시 SSH 터널 경유 사용)",
+        "threat": "무인증 rsync 데몬을 통한 파일 노출 및 변조"
+      }
+    },
+    {
+      "code": "CL-18",
+      "name": "IP 포워딩 비활성화",
+      "category": "네트워크 설정",
+      "status": "FAIL",
+      "detail": "IP 포워딩이 활성화됨 (net.ipv4.ip_forward=1, 권장:0)",
+      "reference": {
+        "purpose": "라우터 용도가 아닌 호스트의 IP 포워딩을 차단하여 트래픽 우회 방지",
+        "check": "net.ipv4.ip_forward 값이 0인지 확인",
+        "goodCriteria": "IP 포워딩이 비활성화됨 (0)",
+        "badCriteria": "IP 포워딩이 활성화됨 (1)",
+        "remediation": "sysctl -w net.ipv4.ip_forward=0 및 영구 설정",
+        "threat": "호스트를 경유한 비인가 네트워크 라우팅 및 우회 접근"
+      }
+    },
+    {
+      "code": "CL-19",
+      "name": "패킷 리다이렉트 전송 비활성화",
+      "category": "네트워크 설정",
+      "status": "FAIL",
+      "detail": "리다이렉트 전송이 활성화됨 (net.ipv4.conf.all.send_redirects=1, 권장:0)",
+      "reference": {
+        "purpose": "ICMP 리다이렉트 전송 비활성화로 라우팅 테이블 변조 방지",
+        "check": "net.ipv4.conf.all.send_redirects 값이 0인지 확인",
+        "goodCriteria": "패킷 리다이렉트 전송이 비활성화됨",
+        "badCriteria": "리다이렉트 전송이 활성화됨",
+        "remediation": "sysctl net.ipv4.conf.all.send_redirects=0 설정",
+        "threat": "악의적 리다이렉트로 인한 중간자 공격(MITM)"
+      }
+    },
+    {
+      "code": "CL-20",
+      "name": "Source Routed 패킷 미수용",
+      "category": "네트워크 설정",
+      "status": "PASS",
+      "detail": "Source Routed 패킷 미수용 (net.ipv4.conf.all.accept_source_route=0)",
+      "reference": {
+        "purpose": "Source Routed 패킷 거부로 라우팅 우회 공격 방지",
+        "check": "net.ipv4.conf.all.accept_source_route 값이 0인지 확인",
+        "goodCriteria": "Source Routed 패킷을 수용하지 않음",
+        "badCriteria": "Source Routed 패킷을 수용함",
+        "remediation": "sysctl net.ipv4.conf.all.accept_source_route=0 설정",
+        "threat": "출발지 라우팅 조작을 통한 접근 통제 및 방화벽 우회"
+      }
+    },
+    {
+      "code": "CL-21",
+      "name": "ICMP 리다이렉트 미수용",
+      "category": "네트워크 설정",
+      "status": "PASS",
+      "detail": "ICMP 리다이렉트 미수용 (net.ipv4.conf.all.accept_redirects=0)",
+      "reference": {
+        "purpose": "ICMP 리다이렉트 수용 차단으로 라우팅 테이블 변조 방지",
+        "check": "net.ipv4.conf.all.accept_redirects 값이 0인지 확인",
+        "goodCriteria": "ICMP 리다이렉트를 수용하지 않음",
+        "badCriteria": "ICMP 리다이렉트를 수용함",
+        "remediation": "sysctl net.ipv4.conf.all.accept_redirects=0 설정",
+        "threat": "조작된 리다이렉트 수신을 통한 트래픽 가로채기"
+      }
+    },
+    {
+      "code": "CL-22",
+      "name": "비정상 패킷 로깅 (log_martians)",
+      "category": "네트워크 설정",
+      "status": "FAIL",
+      "detail": "비정상 패킷 로깅이 비활성화됨 (net.ipv4.conf.all.log_martians=0, 권장:1)",
+      "reference": {
+        "purpose": "비정상(martian) 패킷 로깅으로 스푸핑 공격 탐지",
+        "check": "net.ipv4.conf.all.log_martians 값이 1인지 확인",
+        "goodCriteria": "비정상 패킷 로깅이 활성화됨",
+        "badCriteria": "비정상 패킷 로깅이 비활성화됨",
+        "remediation": "sysctl net.ipv4.conf.all.log_martians=1 설정",
+        "threat": "스푸핑된 출발지 주소 공격에 대한 탐지 누락"
+      }
+    },
+    {
+      "code": "CL-23",
+      "name": "브로드캐스트 ICMP 요청 무시",
+      "category": "네트워크 설정",
+      "status": "PASS",
+      "detail": "브로드캐스트 ICMP 무시함 (net.ipv4.icmp_echo_ignore_broadcasts=1)",
+      "reference": {
+        "purpose": "브로드캐스트 ICMP 무시로 Smurf 증폭 공격 방지",
+        "check": "net.ipv4.icmp_echo_ignore_broadcasts 값이 1인지 확인",
+        "goodCriteria": "브로드캐스트 ICMP 요청을 무시함",
+        "badCriteria": "브로드캐스트 ICMP 요청에 응답함",
+        "remediation": "sysctl net.ipv4.icmp_echo_ignore_broadcasts=1 설정",
+        "threat": "브로드캐스트 증폭을 이용한 Smurf DDoS 공격 가담"
+      }
+    },
+    {
+      "code": "CL-24",
+      "name": "Reverse Path Filtering 활성화",
+      "category": "네트워크 설정",
+      "status": "FAIL",
+      "detail": "Reverse Path Filtering이 비활성화됨 (net.ipv4.conf.all.rp_filter=0, 권장:1)",
+      "reference": {
+        "purpose": "Reverse Path Filtering으로 IP 스푸핑 패킷 차단",
+        "check": "net.ipv4.conf.all.rp_filter 값이 1인지 확인",
+        "goodCriteria": "Reverse Path Filtering이 활성화됨",
+        "badCriteria": "Reverse Path Filtering이 비활성화됨",
+        "remediation": "sysctl net.ipv4.conf.all.rp_filter=1 설정",
+        "threat": "출발지 IP 스푸핑을 통한 비인가 접근 및 공격 은닉"
+      }
+    },
+    {
+      "code": "CL-25",
+      "name": "TCP SYN 쿠키 활성화",
+      "category": "네트워크 설정",
+      "status": "PASS",
+      "detail": "TCP SYN 쿠키 활성화됨 (net.ipv4.tcp_syncookies=1)",
+      "reference": {
+        "purpose": "TCP SYN 쿠키로 SYN Flood DoS 공격 완화",
+        "check": "net.ipv4.tcp_syncookies 값이 1인지 확인",
+        "goodCriteria": "TCP SYN 쿠키가 활성화됨",
+        "badCriteria": "TCP SYN 쿠키가 비활성화됨",
+        "remediation": "sysctl net.ipv4.tcp_syncookies=1 설정",
+        "threat": "SYN Flood 공격을 통한 연결 자원 고갈 DoS"
+      }
+    },
+    {
+      "code": "CL-26",
+      "name": "호스트 방화벽 활성화",
+      "category": "네트워크 설정",
+      "status": "FAIL",
+      "detail": "호스트 방화벽이 활성화되어 있지 않음",
+      "reference": {
+        "purpose": "호스트 방화벽 활성화로 비인가 네트워크 접근 차단",
+        "check": "ufw/firewalld/nftables/iptables 중 하나가 활성화되었는지 확인",
+        "goodCriteria": "호스트 방화벽이 활성화됨",
+        "badCriteria": "방화벽이 비활성화 또는 미설정",
+        "remediation": "ufw enable 또는 firewalld/nftables 정책 적용",
+        "threat": "방화벽 부재로 인한 노출 포트 직접 공격"
+      }
+    },
+    {
+      "code": "CL-27",
+      "name": "auditd 설치 및 활성화",
+      "category": "로깅 및 감사",
+      "status": "FAIL",
+      "detail": "auditd가 설치되어 있지 않음",
+      "reference": {
+        "purpose": "auditd로 시스템 감사 로그를 수집하여 침해 사고 추적성 확보",
+        "check": "auditd 설치 및 서비스 활성화 여부 확인",
+        "goodCriteria": "auditd가 설치되고 활성화됨",
+        "badCriteria": "auditd 미설치 또는 비활성화",
+        "remediation": "auditd 설치 후 systemctl enable --now auditd",
+        "threat": "감사 로그 부재로 인한 침해 행위 추적 불가"
+      }
+    },
+    {
+      "code": "CL-28",
+      "name": "시스템 로깅(rsyslog/journald) 활성화",
+      "category": "로깅 및 감사",
+      "status": "PASS",
+      "detail": "시스템 로깅 데몬 동작 중: rsyslog ",
+      "reference": {
+        "purpose": "시스템 로깅 데몬 활성화로 보안 이벤트 기록 보장",
+        "check": "rsyslog 또는 systemd-journald 활성화 여부 확인",
+        "goodCriteria": "시스템 로깅 데몬이 동작 중",
+        "badCriteria": "시스템 로깅 데몬이 비활성화됨",
+        "remediation": "rsyslog 또는 journald 활성화",
+        "threat": "로그 미기록으로 인한 사고 분석 및 포렌식 불가"
+      }
+    },
+    {
+      "code": "CL-29",
+      "name": "로그 파일 권한 설정",
+      "category": "로깅 및 감사",
+      "status": "REVIEW",
+      "detail": "점검 대상 로그 파일을 찾을 수 없음",
+      "reference": {
+        "purpose": "로그 파일 권한을 제한하여 비인가 열람·변조 방지",
+        "check": "/var/log 하위 주요 로그 파일 권한이 640 이하인지 확인",
+        "goodCriteria": "로그 파일 권한이 적절히 제한됨",
+        "badCriteria": "로그 파일이 과도하게 노출된 권한",
+        "remediation": "chmod 640 및 적절한 소유자 설정",
+        "threat": "로그 노출을 통한 정보 수집 및 흔적 삭제"
+      }
+    },
+    {
+      "code": "CL-30",
+      "name": "audit 로그 저장 공간 설정",
+      "category": "로깅 및 감사",
+      "status": "REVIEW",
+      "detail": "auditd.conf가 없어 점검 불가 (auditd 미설치 가능성)",
+      "reference": {
+        "purpose": "audit 로그 저장 공간 정책을 설정하여 로그 유실 방지",
+        "check": "auditd.conf의 max_log_file 및 max_log_file_action 확인",
+        "goodCriteria": "audit 로그 저장 정책이 설정됨",
+        "badCriteria": "audit 로그 저장 정책 미설정 또는 기본값",
+        "remediation": "auditd.conf에 max_log_file 및 action(keep_logs 등) 설정",
+        "threat": "저장 공간 부족 시 감사 로그 유실로 추적성 상실"
+      }
+    },
+    {
+      "code": "CL-31",
+      "name": "logrotate 설정 확인",
+      "category": "로깅 및 감사",
+      "status": "PASS",
+      "detail": "logrotate가 설치되고 설정 파일이 존재함",
+      "reference": {
+        "purpose": "logrotate 설정으로 로그 보존 및 디스크 관리 보장",
+        "check": "logrotate 설치 및 설정 파일 존재 여부 확인",
+        "goodCriteria": "logrotate가 설정되어 로그가 주기적으로 순환됨",
+        "badCriteria": "logrotate 미설정",
+        "remediation": "logrotate 설치 및 /etc/logrotate.d 정책 구성",
+        "threat": "로그 누적으로 인한 디스크 고갈 및 분석 효율 저하"
+      }
+    },
+    {
+      "code": "CL-32",
+      "name": "cron 데몬 활성화 및 crontab 권한",
+      "category": "접근 및 인증",
+      "status": "FAIL",
+      "detail": "crontab 권한 미흡: /etc/crontab 권한 644(권장 600 이하) ",
+      "reference": {
+        "purpose": "cron 데몬 활성화 및 crontab 권한 제한으로 예약 작업 변조 방지",
+        "check": "cron 활성화 및 /etc/crontab 권한 600 이하 확인",
+        "goodCriteria": "cron이 활성화되고 crontab 권한이 제한됨",
+        "badCriteria": "crontab 권한이 과도하게 노출됨",
+        "remediation": "chmod 600 /etc/crontab 및 cron.* 디렉토리 권한 제한",
+        "threat": "crontab 변조를 통한 악성 예약 작업 등록 및 권한 상승"
+      }
+    },
+    {
+      "code": "CL-33",
+      "name": "cron.allow/at.allow 접근 제한",
+      "category": "접근 및 인증",
+      "status": "FAIL",
+      "detail": "cron/at 접근 제한 미흡: cron.allow없음 at.allow없음 ",
+      "reference": {
+        "purpose": "cron/at 사용을 허가된 사용자로 제한하여 오남용 방지",
+        "check": "cron.allow/at.allow 존재 및 cron.deny/at.deny 제거 여부 확인",
+        "goodCriteria": "cron.allow/at.allow 기반 화이트리스트 접근 제한 적용",
+        "badCriteria": "allow 파일 미설정으로 모든 사용자 접근 가능",
+        "remediation": "cron.allow/at.allow 생성(권한 600), deny 파일 제거",
+        "threat": "비인가 사용자의 예약 작업 등록을 통한 악성 행위"
+      }
+    },
+    {
+      "code": "CL-34",
+      "name": "SSH 설정 파일 권한 제한",
+      "category": "접근 및 인증",
+      "status": "FAIL",
+      "detail": "sshd_config 권한/소유자 미흡 (권한:644, 소유자:root)",
+      "reference": {
+        "purpose": "sshd_config 권한 제한으로 SSH 설정 변조 방지",
+        "check": "/etc/ssh/sshd_config 권한이 600 이하이고 소유자가 root인지 확인",
+        "goodCriteria": "sshd_config 권한이 600 이하(root 전용)",
+        "badCriteria": "sshd_config가 일반 사용자에게 노출됨",
+        "remediation": "chown root:root 및 chmod 600 /etc/ssh/sshd_config",
+        "threat": "SSH 설정 변조를 통한 인증 우회 및 백도어 설정"
+      }
+    },
+    {
+      "code": "CL-35",
+      "name": "SSH root 직접 로그인 차단",
+      "category": "접근 및 인증",
+      "status": "FAIL",
+      "detail": "PermitRootLogin yes — root 직접 로그인 허용",
+      "reference": {
+        "purpose": "SSH root 직접 로그인 차단으로 관리자 계정 무차별 대입 방지",
+        "check": "sshd_config의 PermitRootLogin이 no인지 확인",
+        "goodCriteria": "root 직접 SSH 로그인이 차단됨",
+        "badCriteria": "PermitRootLogin yes로 root 직접 로그인 허용",
+        "remediation": "sshd_config에 PermitRootLogin no 설정 후 sshd 재시작",
+        "threat": "root 계정 직접 무차별 대입 공격 및 책임 추적 곤란"
+      }
+    },
+    {
+      "code": "CL-36",
+      "name": "SSH 보안 옵션 강화",
+      "category": "접근 및 인증",
+      "status": "FAIL",
+      "detail": "취약한 SSH 옵션: MaxAuthTries=6(>4) X11Forwarding=yes ",
+      "reference": {
+        "purpose": "SSH 보안 옵션 강화로 무차별 대입·세션 탈취 위험 감소",
+        "check": "MaxAuthTries, PermitEmptyPasswords, X11Forwarding, ClientAlive 설정 확인",
+        "goodCriteria": "SSH 보안 옵션이 권장값으로 설정됨",
+        "badCriteria": "일부 SSH 보안 옵션이 취약하게 설정됨",
+        "remediation": "MaxAuthTries 4, PermitEmptyPasswords no, X11Forwarding no 등 설정",
+        "threat": "과도한 인증 시도 허용 및 빈 패스워드를 통한 침투"
+      }
+    },
+    {
+      "code": "CL-37",
+      "name": "패스워드 만료 정책 설정",
+      "category": "접근 및 인증",
+      "status": "FAIL",
+      "detail": "패스워드 정책 미흡: MAX_DAYS=99999(권장≤90) MIN_DAYS=0(권장≥1) ",
+      "reference": {
+        "purpose": "패스워드 만료 정책으로 장기 미변경 자격증명 위험 감소",
+        "check": "login.defs의 PASS_MAX_DAYS, PASS_MIN_DAYS, PASS_WARN_AGE 확인",
+        "goodCriteria": "패스워드 만료 정책이 권장값으로 설정됨",
+        "badCriteria": "패스워드 만료 정책 미설정 또는 부적절",
+        "remediation": "PASS_MAX_DAYS 90, PASS_MIN_DAYS 1, PASS_WARN_AGE 7 설정",
+        "threat": "장기간 변경되지 않은 자격증명 유출 시 지속적 악용"
+      }
+    },
+    {
+      "code": "CL-38",
+      "name": "sudo 보안 설정",
+      "category": "접근 및 인증",
+      "status": "FAIL",
+      "detail": "sudo 보안 설정 미흡 (use_pty=true, logfile=false)",
+      "reference": {
+        "purpose": "sudo 보안 설정으로 권한 상승 행위 통제 및 감사",
+        "check": "sudo의 use_pty 및 logfile 설정 여부 확인",
+        "goodCriteria": "sudo use_pty 및 로그 기록이 설정됨",
+        "badCriteria": "sudo 보안 설정이 미적용",
+        "remediation": "/etc/sudoers.d에 Defaults use_pty, Defaults logfile 설정",
+        "threat": "sudo 세션 하이재킹 및 권한 상승 행위 추적 불가"
+      }
+    },
+    {
+      "code": "CL-39",
+      "name": "/etc/passwd 파일 권한 설정",
+      "category": "시스템 유지보수",
+      "status": "PASS",
+      "detail": "/etc/passwd: 권한=644(최대 644), 소유자=root",
+      "reference": {
+        "purpose": "/etc/passwd 권한 제한으로 계정 정보 변조 방지",
+        "check": "/etc/passwd 권한이 644 이하이고 소유자가 root인지 확인",
+        "goodCriteria": "/etc/passwd 권한이 644(root 소유)",
+        "badCriteria": "/etc/passwd 권한이 과도하게 부여됨",
+        "remediation": "chown root:root 및 chmod 644 /etc/passwd",
+        "threat": "계정 정보 변조를 통한 비인가 계정 추가 및 권한 상승"
+      }
+    },
+    {
+      "code": "CL-40",
+      "name": "/etc/shadow 파일 권한 설정",
+      "category": "시스템 유지보수",
+      "status": "PASS",
+      "detail": "/etc/shadow 권한=640(최대 640)",
+      "reference": {
+        "purpose": "/etc/shadow 권한 제한으로 패스워드 해시 유출 방지",
+        "check": "/etc/shadow 권한이 640 이하이고 소유자가 root인지 확인",
+        "goodCriteria": "/etc/shadow 권한이 640 이하(root 소유)",
+        "badCriteria": "/etc/shadow가 과도하게 노출됨",
+        "remediation": "chown root:shadow 및 chmod 640 /etc/shadow",
+        "threat": "패스워드 해시 유출을 통한 오프라인 크래킹"
+      }
+    },
+    {
+      "code": "CL-41",
+      "name": "/etc/group 파일 권한 설정",
+      "category": "시스템 유지보수",
+      "status": "PASS",
+      "detail": "/etc/group: 권한=644(최대 644), 소유자=root",
+      "reference": {
+        "purpose": "/etc/group 권한 제한으로 그룹 정보 변조 방지",
+        "check": "/etc/group 권한이 644 이하이고 소유자가 root인지 확인",
+        "goodCriteria": "/etc/group 권한이 644(root 소유)",
+        "badCriteria": "/etc/group 권한이 과도하게 부여됨",
+        "remediation": "chown root:root 및 chmod 644 /etc/group",
+        "threat": "그룹 멤버십 변조를 통한 권한 상승"
+      }
+    },
+    {
+      "code": "CL-42",
+      "name": "World-writable 파일 점검",
+      "category": "시스템 유지보수",
+      "status": "PASS",
+      "detail": "world-writable 파일이 발견되지 않음",
+      "reference": {
+        "purpose": "World-writable 파일 점검으로 비인가 변조 가능 파일 식별",
+        "check": "누구나 쓰기 가능한(world-writable) 파일 존재 여부 확인",
+        "goodCriteria": "비정상 world-writable 파일이 없음",
+        "badCriteria": "world-writable 파일이 다수 존재",
+        "remediation": "불필요한 쓰기 권한 제거(chmod o-w) 및 sticky bit 적용",
+        "threat": "공용 쓰기 파일 변조를 통한 악성 코드 삽입"
+      }
+    },
+    {
+      "code": "CL-43",
+      "name": "소유자 없는 파일 점검",
+      "category": "시스템 유지보수",
+      "status": "FAIL",
+      "detail": "소유자/그룹 없는 파일 1개 발견(최대 100개 집계) (예: /vc )",
+      "reference": {
+        "purpose": "소유자 없는 파일 점검으로 삭제된 계정 잔여 파일 식별",
+        "check": "소유자/그룹이 존재하지 않는 파일(nouser/nogroup) 확인",
+        "goodCriteria": "소유자 없는 파일이 없음",
+        "badCriteria": "소유자/그룹 없는 파일이 존재",
+        "remediation": "해당 파일에 유효한 소유자 재지정 또는 삭제",
+        "threat": "신규 계정 생성 시 잔여 파일 소유권 탈취 위험"
+      }
+    },
+    {
+      "code": "CL-44",
+      "name": "UID 0 계정 root 단독 확인",
+      "category": "시스템 유지보수",
+      "status": "PASS",
+      "detail": "UID 0 계정이 root 단독",
+      "reference": {
+        "purpose": "UID 0 계정이 root 단독인지 확인하여 은닉 관리자 계정 탐지",
+        "check": "/etc/passwd에서 UID 0 계정이 root만 존재하는지 확인",
+        "goodCriteria": "UID 0 계정이 root 하나뿐",
+        "badCriteria": "root 외 UID 0 계정이 존재",
+        "remediation": "root 외 UID 0 계정의 UID 변경 또는 삭제",
+        "threat": "은닉된 UID 0 백도어 계정을 통한 완전 시스템 장악"
+      }
+    }
+  ]
+}

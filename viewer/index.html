@@ -39,6 +39,10 @@ body{font-family:'Segoe UI',-apple-system,sans-serif;background:var(--bg);color:
 .upload-zone h2{margin-bottom:8px;font-size:1.2rem;}
 .upload-zone p{color:var(--text-secondary);font-size:14px;}
 .upload-zone input{display:none;}
+.sample-zone{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:-12px 0 24px;}
+.sample-zone span{color:var(--text-secondary);font-size:14px;}
+.sample-btn{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 16px;cursor:pointer;color:var(--text);font-size:14px;transition:all .15s;}
+.sample-btn:hover{border-color:var(--primary);color:var(--primary);}
 
 /* ── Compare Banner ─────────────────────────────────── */
 .compare-banner{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:center;flex-wrap:wrap;gap:12px;}
@@ -262,6 +266,12 @@ body{font-family:'Segoe UI',-apple-system,sans-serif;background:var(--bg);color:
     <input type="file" id="fileInput" accept=".json">
   </div>
 
+  <div class="sample-zone" id="sampleZone">
+    <span>처음이신가요? 예시 결과로 둘러보세요 →</span>
+    <button class="sample-btn" onclick="loadSample('kisa')">📋 주기반 점검 (U-01~U-72)</button>
+    <button class="sample-btn" onclick="loadSample('cis')">🐧 CIS Linux (CL-01~CL-44)</button>
+  </div>
+
   <div class="dashboard" id="dashboard">
 
     <!-- 비교 배너 (비교 모드일 때만 표시) -->
@@ -455,11 +465,23 @@ function loadFile(file) {
   reader.readAsText(file);
 }
 
+/* ── 예시(데모) 결과 로드 ────────────────────────────── */
+const SAMPLE_FILES = { kisa: 'samples/sample_kisa.json', cis: 'samples/sample_cis_linux.json' };
+function loadSample(key) {
+  const url = SAMPLE_FILES[key];
+  if (!url) return;
+  fetch(url)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(json => { data = json; baseData = null; compareMode = false; render(); showToast('📋 예시 결과입니다 — 실제 점검은 main.sh로 실행하세요'); })
+    .catch(() => alert('예시 결과를 불러오지 못했습니다.\n파일을 직접 열면(file://) 브라우저 보안 정책으로 차단됩니다. GitHub Pages 또는 로컬 서버에서 열어주세요.'));
+}
+
 function resetFile() {
   data = null; baseData = null; compareMode = false;
   fileInput.value = ''; heroExpanded = false; naSet = new Set();
   document.getElementById('dashboard').classList.remove('active');
   uploadZone.style.display = '';
+  document.getElementById('sampleZone').style.display = '';
   document.getElementById('shareLinkBtn').style.display = 'none';
   document.getElementById('compareBtn').style.display = 'none';
 }
@@ -504,6 +526,7 @@ function endCompare() {
 function render() {
   loadNaSet();
   uploadZone.style.display = 'none';
+  document.getElementById('sampleZone').style.display = 'none';
   document.getElementById('dashboard').classList.add('active');
   document.getElementById('shareLinkBtn').style.display = '';
   document.getElementById('compareBtn').style.display = '';

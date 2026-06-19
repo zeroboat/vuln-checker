@@ -293,6 +293,73 @@ finalize() {
 }
 
 ################################################################################
+# 함수: 통합 JSON 생성
+# 여러 기준(주기반/Docker/CIS Linux)의 JSON에서 checks 배열을 추출·병합하고
+# 각 항목에 "standard" 필드를 주입해 단일 통합 JSON으로 생성한다.
+# 사용법: build_combined_json <out> <run_date> <hostname> <arch> "라벨|경로" ...
+################################################################################
+build_combined_json() {
+    local out="$1"; shift
+    local run_date="$1"; shift
+    local hostname="$1"; shift
+    local arch="$1"; shift
+
+    local tmp
+    tmp=$(mktemp /tmp/vuln_combined_XXXXXX 2>/dev/null || echo "/tmp/vuln_combined_$$")
+    > "$tmp"
+
+    local pair label path
+    for pair in "$@"; do
+        label="${pair%%|*}"
+        path="${pair#*|}"
+        [ -f "$path" ] || continue
+        # checks 배열의 각 항목 라인 추출 → 끝 콤마 제거 → standard 필드 주입
+        awk 'BEGIN{f=0} /"checks": \[/{f=1; next} f && /^[[:space:]]*\]/{f=0} f{print}' "$path" \
+            | sed 's/,[[:space:]]*$//' \
+            | sed "s/^{/{\"standard\":\"${label}\",/" >> "$tmp"
+    done
+
+    if [ ! -s "$tmp" ]; then rm -f "$tmp"; return 1; fi
+
+    local pass fail review total
+    pass=$(grep -c '"status":"PASS"'     "$tmp"); pass=${pass:-0}
+    fail=$(grep -c '"status":"FAIL"'     "$tmp"); fail=${fail:-0}
+    review=$(grep -c '"status":"REVIEW"' "$tmp"); review=${review:-0}
+    total=$(( pass + fail + review ))
+
+    # 마지막 항목을 제외한 모든 라인에 콤마 추가
+    local checks_json
+    checks_json=$(sed '$!s/$/,/' "$tmp")
+
+    local esc_hostname
+    esc_hostname=$(json_escape "$hostname")
+
+    cat > "$out" <<JSONEOF
+{
+  "metadata": {
+    "executionTime": "${run_date}",
+    "hostname": "${esc_hostname}",
+    "os": "통합",
+    "distro": "KISA + Docker + CIS Linux",
+    "architecture": "${arch}"
+  },
+  "summary": {
+    "total": ${total},
+    "pass": ${pass},
+    "fail": ${fail},
+    "review": ${review}
+  },
+  "checks": [
+${checks_json}
+  ]
+}
+JSONEOF
+
+    rm -f "$tmp"
+    return 0
+}
+
+################################################################################
 # 함수: 프로파일 판정
 ################################################################################
 # 현재 프로파일에 KISA(주기반 U-01~U-72) 점검이 포함되는지
@@ -477,6 +544,19 @@ main() {
 
     log "INFO" "JSON 저장: ${JSON_FILE}"
     log "INFO" "요약 저장: ${SUMMARY_FILE}"
+
+    # 통합 JSON 생성 (2개 이상 기준이 점검된 경우 result_all_*.json 추가 생성)
+    local combined_pairs=()
+    [ "$total_count" -gt 0 ] && combined_pairs+=("주기반|${JSON_FILE}")
+    [ -n "${DOCKER_JSON_OUTPUT:-}" ] && [ -f "${DOCKER_JSON_OUTPUT:-/nonexistent}" ] && combined_pairs+=("Docker|${DOCKER_JSON_OUTPUT}")
+    [ -n "${CIS_JSON_OUTPUT:-}" ] && [ -f "${CIS_JSON_OUTPUT:-/nonexistent}" ] && combined_pairs+=("CIS Linux|${CIS_JSON_OUTPUT}")
+    if [ "${#combined_pairs[@]}" -ge 2 ]; then
+        local combined_file="${RESULTS_DIR}/result_all_${TIMESTAMP}.json"
+        if build_combined_json "$combined_file" "$run_date" "$json_hostname" "$json_arch" "${combined_pairs[@]}"; then
+            log "INFO" "통합 JSON 저장: ${combined_file}"
+            echo -e "${GREEN}[통합] 모든 기준 통합 결과: ${combined_file}${NC}"
+        fi
+    fi
 
     # 종료 처리
     if [ $result -eq 0 ]; then

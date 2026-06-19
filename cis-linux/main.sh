@@ -33,6 +33,8 @@ run_cis_linux_checks() {
 
     CIS_RESULT_FILE="${result_dir}/cis_linux_result_${ts}.txt"
     local json_file="${result_dir}/cis_linux_result_${ts}.json"
+    # 통합 JSON 생성을 위해 경로를 전역으로 노출 (main.sh에서 참조)
+    CIS_JSON_OUTPUT="$json_file"
 
     # JSON 임시 파일 초기화
     init_cis_json

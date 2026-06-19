@@ -30,13 +30,14 @@
 
 **로컬:** `viewer/index.html` 을 브라우저로 직접 열기
 
-> 💡 직접 점검을 돌리지 않아도, 업로드 화면의 **예시 결과 보기** 버튼(주기반 / CIS Linux)으로 대시보드를 바로 체험할 수 있습니다. 예시 데이터는 `viewer/samples/`에 포함되어 있습니다. (로컬에서 `file://`로 열면 브라우저 보안 정책상 예시 로드가 막히므로 GitHub Pages 또는 `python3 -m http.server`로 여세요.)
+> 💡 직접 점검을 돌리지 않아도, 업로드 화면의 **예시 결과 보기** 버튼(주기반 / CIS Linux / 통합)으로 대시보드를 바로 체험할 수 있습니다. 예시 데이터는 `viewer/samples/`에 포함되어 있습니다. (로컬에서 `file://`로 열면 브라우저 보안 정책상 예시 로드가 막히므로 GitHub Pages 또는 `python3 -m http.server`로 여세요.)
 
 ### 주요 기능
 
 | 기능 | 설명 |
 |------|------|
-| 📋 예시 결과 보기 | 업로드 없이 주기반·CIS Linux 데모 결과로 대시보드 즉시 체험 |
+| 📋 예시 결과 보기 | 업로드 없이 주기반·CIS Linux·통합 데모 결과로 대시보드 즉시 체험 |
+| 🔀 통합 결과 보기 | `result_all_*.json` 로드 시 **기준 필터**(주기반·Docker·CIS Linux)로 한 화면에서 전환 |
 | 🔴 위험도 점수 | KISA 중요도 가중치 적용 (0~100점) |
 | ⚡ Fix-First 액션보드 | FAIL 항목 + 조치 명령어가 첫 화면에 표시, 클립보드 복사 |
 | 📊 비교 분석 | 이전·현재 결과 JSON 2개 로드 → 신규 취약/해결/유지 diff 표시 |
@@ -110,10 +111,12 @@ vuln-checker/
 │   ├── index.html                   # 결과 뷰어 (단일 HTML, CDN 의존)
 │   └── samples/                     # 뷰어 예시 결과 (주기반 / CIS Linux)
 │       ├── sample_kisa.json
-│       └── sample_cis_linux.json
+│       ├── sample_cis_linux.json
+│       └── sample_all.json
 ├── results/                         # 점검 결과 저장
 │   ├── result_YYYYMMDD_HHMMSS.txt   # 전체 상세 결과
 │   ├── result_YYYYMMDD_HHMMSS.json  # JSON 결과 (뷰어용)
+│   ├── result_all_YYYYMMDD_HHMMSS.json # 통합 JSON (2개 이상 기준 시)
 │   └── summary_YYYYMMDD_HHMMSS.md   # 요약 보고서 (Markdown)
 ├── logs/
 │   └── run_YYYYMMDD_HHMMSS.log      # 실행 로그
@@ -177,7 +180,15 @@ sudo ./main.sh --parallel -j 8      # 8개씩 병렬 실행
 
 ## 출력 파일
 
-실행이 완료되면 `results/` 디렉토리에 파일이 생성됩니다. Docker가 감지되면 Docker 전용 결과 파일도 함께 생성됩니다.
+실행이 완료되면 `results/` 디렉토리에 파일이 생성됩니다. 점검 기준(주기반·Docker·CIS Linux)마다 **독립 결과 파일**로 저장되어 뷰어에서 각각 로드·비교할 수 있습니다. 2개 이상 기준이 점검되면 모든 항목을 한 파일에 모은 **통합 JSON**(`result_all_*.json`)도 추가로 생성됩니다.
+
+| 파일 | 내용 |
+|------|------|
+| `result_*.txt` / `.json` | 주기반(U-01~U-72) 상세·JSON 결과 |
+| `summary_*.md` | 주기반 요약 보고서 (Markdown) |
+| `docker_result_*.txt` / `.json` | Docker 점검 결과 (감지 시) |
+| `cis_linux_result_*.txt` / `.json` | CIS Linux 점검 결과 (`--profile cis-linux`/`all`) |
+| `result_all_*.json` | **통합 JSON** — 모든 기준을 한 파일에 (각 항목에 `standard` 필드). 뷰어에서 기준별 필터로 표시 |
 
 ### 1. 상세 결과 — `result_YYYYMMDD_HHMMSS.txt`
 

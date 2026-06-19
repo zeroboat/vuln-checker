@@ -175,6 +175,7 @@ body{font-family:'Segoe UI',-apple-system,sans-serif;background:var(--bg);color:
 .check-code{font-weight:600;font-size:14px;min-width:50px;}
 .check-name{flex:1;font-size:14px;min-width:120px;}
 .check-category-tag{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--bg);color:var(--text-secondary);white-space:nowrap;}
+.check-standard-tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--primary);color:#fff;white-space:nowrap;}
 .status-badge{padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap;}
 .status-badge.PASS{background:var(--pass-bg);color:var(--pass);}
 .status-badge.FAIL{background:var(--fail-bg);color:var(--fail);}
@@ -270,6 +271,7 @@ body{font-family:'Segoe UI',-apple-system,sans-serif;background:var(--bg);color:
     <span>처음이신가요? 예시 결과로 둘러보세요 →</span>
     <button class="sample-btn" onclick="loadSample('kisa')">📋 주기반 점검 (U-01~U-72)</button>
     <button class="sample-btn" onclick="loadSample('cis')">🐧 CIS Linux (CL-01~CL-44)</button>
+    <button class="sample-btn" onclick="loadSample('all')">🔀 통합 (전체 기준)</button>
   </div>
 
   <div class="dashboard" id="dashboard">
@@ -320,6 +322,7 @@ let compareMode = false;
 let chartInstance = null;
 let activeStatusFilter = 'ALL';
 let activeCategoryFilter = 'ALL';
+let activeStandardFilter = 'ALL';
 let heroExpanded = false;
 let naSet = new Set();
 
@@ -392,6 +395,13 @@ function getDerivedCategories(src) {
   return [...seen];
 }
 
+/* ── 점검 기준(standard) 동적 추출 — 통합 JSON일 때만 존재 ── */
+function getDerivedStandards(src) {
+  const seen = new Set();
+  (src || data).checks.forEach(c => { if (c.standard) seen.add(c.standard); });
+  return [...seen];
+}
+
 /* ── 위험도 점수
    FAIL 중요: -4점  FAIL 일반: -2점
    REVIEW 중요: -2점  REVIEW 일반: -1점     */
@@ -456,29 +466,34 @@ uploadZone.addEventListener('drop', e => {
 });
 fileInput.addEventListener('change', e => { if (e.target.files.length) loadFile(e.target.files[0]); });
 
+function resetFilters() {
+  activeStatusFilter = 'ALL'; activeCategoryFilter = 'ALL'; activeStandardFilter = 'ALL';
+}
+
 function loadFile(file) {
   const reader = new FileReader();
   reader.onload = e => {
-    try { data = JSON.parse(e.target.result); render(); }
+    try { data = JSON.parse(e.target.result); resetFilters(); render(); }
     catch { alert('유효한 JSON 파일이 아닙니다.'); }
   };
   reader.readAsText(file);
 }
 
 /* ── 예시(데모) 결과 로드 ────────────────────────────── */
-const SAMPLE_FILES = { kisa: 'samples/sample_kisa.json', cis: 'samples/sample_cis_linux.json' };
+const SAMPLE_FILES = { kisa: 'samples/sample_kisa.json', cis: 'samples/sample_cis_linux.json', all: 'samples/sample_all.json' };
 function loadSample(key) {
   const url = SAMPLE_FILES[key];
   if (!url) return;
   fetch(url)
     .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(json => { data = json; baseData = null; compareMode = false; render(); showToast('📋 예시 결과입니다 — 실제 점검은 main.sh로 실행하세요'); })
+    .then(json => { data = json; baseData = null; compareMode = false; resetFilters(); render(); showToast('📋 예시 결과입니다 — 실제 점검은 main.sh로 실행하세요'); })
     .catch(() => alert('예시 결과를 불러오지 못했습니다.\n파일을 직접 열면(file://) 브라우저 보안 정책으로 차단됩니다. GitHub Pages 또는 로컬 서버에서 열어주세요.'));
 }
 
 function resetFile() {
   data = null; baseData = null; compareMode = false;
   fileInput.value = ''; heroExpanded = false; naSet = new Set();
+  activeStatusFilter = 'ALL'; activeCategoryFilter = 'ALL'; activeStandardFilter = 'ALL';
   document.getElementById('dashboard').classList.remove('active');
   uploadZone.style.display = '';
   document.getElementById('sampleZone').style.display = '';
@@ -811,6 +826,16 @@ function renderFilters() {
     html += `<button class="filter-btn${activeStatusFilter===f.key?' active':''}" onclick="setStatusFilter('${f.key}')">${f.label}</button>`;
   });
   html += '</div>';
+  // 점검 기준 필터 (통합 JSON에서 2개 이상 기준이 있을 때만)
+  const stds = getDerivedStandards(data);
+  if (stds.length > 1) {
+    html += '<div style="width:1px;height:28px;background:var(--border);margin:0 8px;align-self:center;"></div><div class="filter-group">';
+    html += `<button class="filter-btn${activeStandardFilter==='ALL'?' active':''}" onclick="setStandardFilter('ALL')">전체 기준</button>`;
+    stds.forEach(st => {
+      html += `<button class="filter-btn${activeStandardFilter===st?' active':''}" data-std="${esc(st)}" onclick="setStandardFilter(this.dataset.std)">${esc(st)}</button>`;
+    });
+    html += '</div>';
+  }
   if (cats.length > 1) {
     html += '<div style="width:1px;height:28px;background:var(--border);margin:0 8px;align-self:center;"></div><div class="filter-group">';
     html += `<button class="filter-btn${activeCategoryFilter==='ALL'?' active':''}" onclick="setCategoryFilter('ALL')">전체 카테고리</button>`;
@@ -825,6 +850,7 @@ function renderFilters() {
 
 function setStatusFilter(key)   { activeStatusFilter = key;   renderFilters(); renderChecks(); }
 function setCategoryFilter(key) { activeCategoryFilter = key; renderFilters(); renderChecks(); }
+function setStandardFilter(key) { activeStandardFilter = key; renderFilters(); renderChecks(); }
 
 function getFilteredChecks() {
   const q = (document.getElementById('searchInput')?.value ?? '').trim().toLowerCase();
@@ -835,6 +861,7 @@ function getFilteredChecks() {
     } else if (activeStatusFilter !== 'ALL') {
       if (c.status !== activeStatusFilter || isNA) return false;
     }
+    if (activeStandardFilter !== 'ALL' && c.standard !== activeStandardFilter) return false;
     if (activeCategoryFilter !== 'ALL' && c.category !== activeCategoryFilter) return false;
     if (q && !((c.code ?? '').toLowerCase().includes(q) || (c.name ?? '').toLowerCase().includes(q))) return false;
     return true;
@@ -904,6 +931,7 @@ function renderChecks() {
 
     html += `<div class="${rowClass}" onclick="this.classList.toggle('open')">
       <div class="check-header">
+        ${c.standard ? `<span class="check-standard-tag">${esc(c.standard)}</span>` : ''}
         <span class="check-code">${esc(c.code)}</span>
         <span class="check-name">${esc(c.name ?? '')}</span>
         <span class="check-category-tag">${esc(c.category ?? '')}</span>

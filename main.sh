@@ -18,6 +18,8 @@ NC='\033[0m' # No Color
 PARALLEL_MODE="false"
 PARALLEL_JOBS=4
 PROFILE="default"
+ENCRYPT="false"
+ENCRYPT_PASS=""
 
 show_help() {
     echo "사용법: sudo $0 [옵션]"
@@ -26,6 +28,8 @@ show_help() {
     echo "  --profile NAME     점검 기준(프로파일) 선택 (기본: default)"
     echo "  --parallel         병렬 실행 모드 (기본: 순차 실행)"
     echo "  --jobs N, -j N     병렬 실행 시 동시 작업 수 (기본: 4)"
+    echo "  --encrypt          결과 JSON을 AES-256으로 암호화 저장(.enc), 평문 JSON 제거"
+    echo "  --encrypt-pass P   암호화 암호 지정(미지정 시 VC_ENCRYPT_PASS 환경변수 또는 입력 요청)"
     echo "  --list-profiles    사용 가능한 프로파일 목록 표시"
     echo "  --help, -h         도움말 표시"
     echo ""
@@ -68,6 +72,15 @@ while [ $# -gt 0 ]; do
             PARALLEL_MODE="true"
             shift
             ;;
+        --encrypt)
+            ENCRYPT="true"
+            shift
+            ;;
+        --encrypt-pass)
+            ENCRYPT="true"
+            ENCRYPT_PASS="${2:-}"
+            shift 2 2>/dev/null || shift
+            ;;
         --jobs|-j)
             PARALLEL_JOBS="${2:-4}"
             shift 2 2>/dev/null || shift
@@ -97,6 +110,55 @@ case "$PROFILE" in
 esac
 
 export PARALLEL_MODE PARALLEL_JOBS PROFILE
+
+################################################################################
+# 결과 암호화 (--encrypt): AES-256-CBC + PBKDF2-HMAC-SHA256, openssl 봉투 포맷
+#   출력: base64 텍스트 (Salted__ + salt + ciphertext). 뷰어가 Web Crypto로 복호화.
+################################################################################
+VC_ENCRYPT_ITER=200000
+
+resolve_encrypt_pass() {
+    # 우선순위: --encrypt-pass > VC_ENCRYPT_PASS 환경변수 > 대화형 입력
+    if [ -n "$ENCRYPT_PASS" ]; then
+        return 0
+    fi
+    if [ -n "${VC_ENCRYPT_PASS:-}" ]; then
+        ENCRYPT_PASS="$VC_ENCRYPT_PASS"
+        return 0
+    fi
+    if [ -t 0 ]; then
+        local p1 p2
+        read -r -s -p "암호화 암호 입력: " p1; echo "" >&2
+        read -r -s -p "암호 확인:       " p2; echo "" >&2
+        if [ "$p1" != "$p2" ]; then
+            echo -e "${RED}[오류] 암호가 일치하지 않습니다.${NC}" >&2
+            return 1
+        fi
+        if [ -z "$p1" ]; then
+            echo -e "${RED}[오류] 빈 암호는 사용할 수 없습니다.${NC}" >&2
+            return 1
+        fi
+        ENCRYPT_PASS="$p1"
+        return 0
+    fi
+    echo -e "${RED}[오류] 암호화 암호가 없습니다. --encrypt-pass 또는 VC_ENCRYPT_PASS를 지정하세요.${NC}" >&2
+    return 1
+}
+
+encrypt_file() {
+    # $1=평문 파일. 성공 시 "$1.enc" 생성 후 평문 삭제, 경로 출력.
+    local src="$1"
+    [ -f "$src" ] || return 1
+    local enc="${src}.enc"
+    if openssl enc -aes-256-cbc -salt -pbkdf2 -iter "$VC_ENCRYPT_ITER" -md sha256 -base64 -A \
+        -in "$src" -out "$enc" -pass "pass:${ENCRYPT_PASS}" 2>/dev/null; then
+        rm -f "$src"
+        printf '%s\n' "$enc"
+        return 0
+    fi
+    rm -f "$enc" 2>/dev/null
+    return 1
+}
 
 ################################################################################
 # root 권한 확인
@@ -555,6 +617,35 @@ main() {
         if build_combined_json "$combined_file" "$run_date" "$json_hostname" "$json_arch" "${combined_pairs[@]}"; then
             log "INFO" "통합 JSON 저장: ${combined_file}"
             echo -e "${GREEN}[통합] 모든 기준 통합 결과: ${combined_file}${NC}"
+        fi
+    fi
+
+    # 결과 JSON 암호화 (--encrypt)
+    if [ "$ENCRYPT" = "true" ]; then
+        if ! command -v openssl >/dev/null 2>&1; then
+            log "WARN" "openssl이 없어 암호화를 건너뜁니다."
+            echo -e "${YELLOW}[암호화] openssl 미설치 — 평문 JSON으로 유지됩니다.${NC}"
+        elif resolve_encrypt_pass; then
+            local enc_targets=() enc_out enc_count=0
+            [ "$total_count" -gt 0 ] && enc_targets+=("$JSON_FILE")
+            [ -n "${DOCKER_JSON_OUTPUT:-}" ] && [ -f "${DOCKER_JSON_OUTPUT:-/nonexistent}" ] && enc_targets+=("$DOCKER_JSON_OUTPUT")
+            [ -n "${CIS_JSON_OUTPUT:-}" ] && [ -f "${CIS_JSON_OUTPUT:-/nonexistent}" ] && enc_targets+=("$CIS_JSON_OUTPUT")
+            [ -n "${combined_file:-}" ] && [ -f "${combined_file:-/nonexistent}" ] && enc_targets+=("$combined_file")
+            local f
+            for f in "${enc_targets[@]}"; do
+                if enc_out=$(encrypt_file "$f"); then
+                    log "INFO" "암호화 저장: ${enc_out}"
+                    enc_count=$((enc_count + 1))
+                else
+                    log "WARN" "암호화 실패: ${f}"
+                fi
+            done
+            unset ENCRYPT_PASS
+            echo -e "${GREEN}[암호화] ${enc_count}개 JSON을 AES-256으로 암호화했습니다 (.enc).${NC}"
+            echo -e "${YELLOW}  ⚠ .txt/.md 보고서는 평문으로 남습니다 — 외부 전달 시 직접 처리하세요.${NC}"
+            echo -e "${YELLOW}  뷰어(viewer/index.html)에서 .enc 파일을 열고 암호를 입력하면 복호화됩니다.${NC}"
+        else
+            log "WARN" "암호 확인 실패로 암호화를 건너뜁니다."
         fi
     fi
 

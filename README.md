@@ -38,6 +38,7 @@
 |------|------|
 | 📋 예시 결과 보기 | 업로드 없이 주기반·CIS Linux·통합 데모 결과로 대시보드 즉시 체험 |
 | 🔀 통합 결과 보기 | `result_all_*.json` 로드 시 **기준 필터**(주기반·Docker·CIS Linux)로 한 화면에서 전환 |
+| 🔓 암호화 결과 복호화 | `--encrypt`로 만든 `.enc` 파일을 암호 입력만으로 **브라우저 안에서 복호화**(Web Crypto, 데모 암호 `demo1234`) |
 | 🔴 위험도 점수 | KISA 중요도 가중치 적용 (0~100점) |
 | ⚡ Fix-First 액션보드 | FAIL 항목 + 조치 명령어가 첫 화면에 표시, 클립보드 복사 |
 | 📊 비교 분석 | 이전·현재 결과 JSON 2개 로드 → 신규 취약/해결/유지 diff 표시 |
@@ -151,6 +152,8 @@ root 권한이 없으면 아래 메시지와 함께 즉시 종료됩니다.
 | `--profile NAME` | 점검 기준(프로파일) 선택 (기본: `default`) |
 | `--parallel` | 병렬 실행 모드 (기본: 순차 실행) |
 | `--jobs N`, `-j N` | 병렬 실행 시 동시 작업 수 (기본: 4) |
+| `--encrypt` | 결과 JSON을 **AES-256으로 암호화**해 `.enc`로 저장하고 평문 JSON 제거 |
+| `--encrypt-pass P` | 암호화 암호 지정 (미지정 시 `VC_ENCRYPT_PASS` 환경변수 → 대화형 입력 순으로 사용) |
 | `--list-profiles` | 사용 가능한 프로파일 목록 표시 |
 | `--help`, `-h` | 도움말 표시 |
 
@@ -178,6 +181,39 @@ sudo ./main.sh --parallel -j 8      # 8개씩 병렬 실행
 
 ---
 
+## 결과 암호화 (`--encrypt`)
+
+점검 결과는 **해당 서버의 약점 지도**나 다름없어, 외부로 전달·보관할 때 민감 산출물로 다뤄야 합니다. `--encrypt` 옵션을 주면 결과 JSON을 **AES-256-CBC + PBKDF2(HMAC-SHA256, 200,000회)** 로 암호화해 `.enc` 파일로 저장하고 평문 JSON은 삭제합니다. 복호화는 뷰어에서 암호를 입력하면 **브라우저 안(Web Crypto API)** 에서 이뤄지므로 암호나 평문이 서버·네트워크로 나가지 않습니다.
+
+```bash
+# 암호를 직접 지정
+sudo ./main.sh --profile all --encrypt --encrypt-pass '강력한암호'
+
+# 환경변수로 전달 (CI/스크립트 친화적)
+sudo VC_ENCRYPT_PASS='강력한암호' ./main.sh --profile all --encrypt
+
+# 암호 미지정 시 실행 중 안전하게 입력 요청(입력 숨김)
+sudo ./main.sh --encrypt
+```
+
+- 암호 우선순위: `--encrypt-pass` → `VC_ENCRYPT_PASS` 환경변수 → 대화형 입력
+- 출력: `result_*.json.enc`, `result_all_*.json.enc` 등 (평문 `.json`은 제거)
+- **봉투 포맷**: `Salted__`(8) + salt(8) + ciphertext, Base64 — `openssl enc` 호환
+- 뷰어에서 `.enc` 파일을 드래그/선택하면 암호 입력창이 뜨고, 맞으면 대시보드가 표시됩니다.
+- ⚠️ `.txt`/`.md` 사람용 보고서는 평문으로 남습니다 — 외부 전달 시 직접 삭제·처리하세요.
+- 인증(GCM) 대신 CBC를 쓰는 이유: `openssl enc` CLI는 GCM 태그를 안전하게 다루지 못해 의존성 없이 호환되는 CBC를 채택했습니다. 잘못된 암호는 복호화 실패로 거부됩니다.
+
+> 🔓 **뷰어 데모**: 업로드 화면의 **"암호화 결과 복호화 데모"** 버튼으로 암호화 → 복호화 흐름을 직접 체험할 수 있습니다. (데모 암호: `demo1234`)
+
+수동으로 복호화하려면 openssl CLI로도 가능합니다:
+
+```bash
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 -base64 -A \
+  -in results/result_all_*.json.enc -pass pass:'강력한암호'
+```
+
+---
+
 ## 출력 파일
 
 실행이 완료되면 `results/` 디렉토리에 파일이 생성됩니다. 점검 기준(주기반·Docker·CIS Linux)마다 **독립 결과 파일**로 저장되어 뷰어에서 각각 로드·비교할 수 있습니다. 2개 이상 기준이 점검되면 모든 항목을 한 파일에 모은 **통합 JSON**(`result_all_*.json`)도 추가로 생성됩니다.
@@ -189,6 +225,7 @@ sudo ./main.sh --parallel -j 8      # 8개씩 병렬 실행
 | `docker_result_*.txt` / `.json` | Docker 점검 결과 (감지 시) |
 | `cis_linux_result_*.txt` / `.json` | CIS Linux 점검 결과 (`--profile cis-linux`/`all`) |
 | `result_all_*.json` | **통합 JSON** — 모든 기준을 한 파일에 (각 항목에 `standard` 필드). 뷰어에서 기준별 필터로 표시 |
+| `*.json.enc` | `--encrypt` 사용 시 위 JSON들을 AES-256으로 암호화한 파일 (평문 `.json`은 제거됨) |
 
 ### 1. 상세 결과 — `result_YYYYMMDD_HHMMSS.txt`
 

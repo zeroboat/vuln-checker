@@ -43,6 +43,18 @@ body{font-family:'Segoe UI',-apple-system,sans-serif;background:var(--bg);color:
 .sample-zone span{color:var(--text-secondary);font-size:14px;}
 .sample-btn{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 16px;cursor:pointer;color:var(--text);font-size:14px;transition:all .15s;}
 .sample-btn:hover{border-color:var(--primary);color:var(--primary);}
+.sample-btn.enc{border-style:dashed;}
+.pass-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;}
+.pass-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:min(92vw,400px);box-shadow:0 20px 60px rgba(0,0,0,.45);}
+.pass-card h3{margin:0 0 10px;font-size:18px;}
+.pass-card #passHint{color:var(--text-secondary);font-size:14px;margin:0 0 16px;line-height:1.55;}
+.pass-card #passHint code{background:var(--border);padding:2px 6px;border-radius:5px;font-size:13px;}
+.pass-card input{width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);font-size:15px;}
+.pass-card input:focus{outline:none;border-color:var(--primary);}
+.pass-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
+.pass-actions button{padding:9px 18px;border-radius:8px;border:1px solid var(--border);cursor:pointer;font-size:14px;}
+.pass-ok{background:var(--primary);color:#fff;border-color:var(--primary);}
+.pass-cancel{background:transparent;color:var(--text);}
 
 /* ── Compare Banner ─────────────────────────────────── */
 .compare-banner{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:center;flex-wrap:wrap;gap:12px;}
@@ -251,6 +263,20 @@ body{font-family:'Segoe UI',-apple-system,sans-serif;background:var(--bg);color:
   </div>
 </div>
 
+<!-- 복호화 암호 입력 모달 -->
+<div class="pass-modal" id="passModal" style="display:none">
+  <div class="pass-card">
+    <h3>🔒 암호화된 결과</h3>
+    <p id="passHint">이 파일을 보려면 암호를 입력하세요.</p>
+    <input type="password" id="passInput" placeholder="암호 입력" autocomplete="off"
+      onkeydown="if(event.key==='Enter')submitPass()">
+    <div class="pass-actions">
+      <button class="pass-cancel" onclick="cancelPass()">취소</button>
+      <button class="pass-ok" onclick="submitPass()">복호화</button>
+    </div>
+  </div>
+</div>
+
 <div class="container">
   <div class="header">
     <h1>🛡️ 취약점 점검 결과</h1>
@@ -265,7 +291,7 @@ body{font-family:'Segoe UI',-apple-system,sans-serif;background:var(--bg);color:
   <div class="upload-zone" id="uploadZone">
     <h2>JSON 결과 파일 업로드</h2>
     <p>파일을 드래그하거나 클릭하여 선택하세요</p>
-    <input type="file" id="fileInput" accept=".json">
+    <input type="file" id="fileInput" accept=".json,.enc">
   </div>
 
   <div class="sample-zone" id="sampleZone">
@@ -273,6 +299,7 @@ body{font-family:'Segoe UI',-apple-system,sans-serif;background:var(--bg);color:
     <button class="sample-btn" onclick="loadSample('kisa')">📋 주기반 점검 (U-01~U-72)</button>
     <button class="sample-btn" onclick="loadSample('cis')">🐧 CIS Linux (CL-01~CL-44)</button>
     <button class="sample-btn" onclick="loadSample('all')">🔀 통합 (전체 기준)</button>
+    <button class="sample-btn enc" onclick="loadEncDemo()">🔓 암호화 결과 복호화 데모</button>
   </div>
 
   <div class="dashboard" id="dashboard">
@@ -474,10 +501,83 @@ function resetFilters() {
 function loadFile(file) {
   const reader = new FileReader();
   reader.onload = e => {
-    try { data = JSON.parse(e.target.result); resetFilters(); render(); }
+    const text = e.target.result;
+    const isEnc = /\.enc$/i.test(file.name) || text.trimStart().startsWith('U2FsdGVkX1');
+    if (isEnc) { loadEncryptedText(text, '🔒 암호화된 결과입니다. 암호를 입력하세요.'); return; }
+    try { data = JSON.parse(text); resetFilters(); render(); }
     catch { alert('유효한 JSON 파일이 아닙니다.'); }
   };
   reader.readAsText(file);
+}
+
+/* ── 암호화 결과 복호화 (openssl AES-256-CBC + PBKDF2 봉투) ─────────── */
+async function decryptOpenSSL(b64, password) {
+  const clean = (b64 || '').replace(/\s+/g, '');
+  const raw = Uint8Array.from(atob(clean), c => c.charCodeAt(0));
+  if (raw.length < 16 || String.fromCharCode(...raw.slice(0, 8)) !== 'Salted__')
+    throw new Error('형식 오류');
+  const salt = raw.slice(8, 16);
+  const ct   = raw.slice(16);
+  const baseKey = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' }, baseKey, 384);
+  const kiv = new Uint8Array(bits);
+  const key = await crypto.subtle.importKey(
+    'raw', kiv.slice(0, 32), { name: 'AES-CBC' }, false, ['decrypt']);
+  const ptBuf = await crypto.subtle.decrypt(
+    { name: 'AES-CBC', iv: kiv.slice(32, 48) }, key, ct);
+  return new TextDecoder().decode(ptBuf);
+}
+
+let _passResolver = null;
+function promptPassphrase(hintHtml, isErr) {
+  return new Promise(resolve => {
+    _passResolver = resolve;
+    const h = document.getElementById('passHint');
+    h.innerHTML = hintHtml;
+    h.style.color = isErr ? '#e5484d' : '';
+    const input = document.getElementById('passInput');
+    input.value = '';
+    document.getElementById('passModal').style.display = 'flex';
+    setTimeout(() => input.focus(), 50);
+  });
+}
+function submitPass() {
+  if (_passResolver) { const r = _passResolver; _passResolver = null; r(document.getElementById('passInput').value); }
+}
+function cancelPass() {
+  closePass();
+  if (_passResolver) { const r = _passResolver; _passResolver = null; r(null); }
+}
+function closePass() { document.getElementById('passModal').style.display = 'none'; }
+
+async function loadEncryptedText(b64Text, hintHtml) {
+  let hint = hintHtml || '🔒 암호화된 결과입니다. 암호를 입력하세요.';
+  let isErr = false;
+  while (true) {
+    const pass = await promptPassphrase(hint, isErr);
+    if (pass === null) return;            // 취소
+    try {
+      const json = JSON.parse(await decryptOpenSSL(b64Text, pass));
+      closePass();
+      data = json; baseData = null; compareMode = false; resetFilters(); render();
+      showToast('🔓 복호화 완료 — 결과를 표시합니다');
+      return;
+    } catch {
+      hint = '❌ 암호가 올바르지 않습니다. 다시 입력하세요.';
+      isErr = true;
+    }
+  }
+}
+
+const SAMPLE_ENC = 'samples/sample_all.enc';
+function loadEncDemo() {
+  fetch(SAMPLE_ENC)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+    .then(text => loadEncryptedText(text,
+      '🔒 <b>복호화 데모</b><br>데모 암호 <code>demo1234</code> 를 입력해 보세요.'))
+    .catch(() => alert('암호화 샘플을 불러오지 못했습니다.\nfile://에서는 차단됩니다. 로컬 서버나 GitHub Pages에서 열어주세요.'));
 }
 
 /* ── 예시(데모) 결과 로드 ────────────────────────────── */
